@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تجهيز صور الطباعة عند الطلب (POD)</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f6f8;
+            color: #1e293b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: #ffffff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 480px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #0f172a;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        input[type="file"], select, input[type="number"] {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .custom-dims {
+            display: none;
+            gap: 10px;
+            margin-top: 0.5rem;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-group input {
+            width: auto;
+        }
+        button {
+            width: 100%;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+        }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-stripe {
+            background-color: #635bff;
+            color: white;
+        }
+        .btn-stripe:hover { background-color: #4b45c6; }
+        .btn-download {
+            background-color: #16a34a;
+            color: white;
+            display: none; /* مخفي افتراضياً ولن يظهر إلا بعد الدفع والمعالجة */
+            text-align: center;
+            text-decoration: none;
+            padding: 0.8rem;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+        #status {
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.95rem;
+        }
+        .loader {
+            display: none;
+            text-align: center;
+            color: #2563eb;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>تجهيز التصاميم للطباعة (POD)</h2>
+    
+    <div id="paymentAlert" style="display:none; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center;"></div>
+
+    <form id="uploadForm">
+        <div class="form-group">
+            <label for="imageFile">اختر التصميم (صورة):</label>
+            <input type="file" id="imageFile" accept="image/*" required>
+        </div>
+
+        <div class="form-group">
+            <label for="platform">المنصة المستهدفة:</label>
+            <select id="platform" onchange="toggleCustomDims()">
+                <option value="redbubble">Redbubble (5000 × 5000)</option>
+                <option value="teepublic">Teepublic (5000 × 5500)</option>
+                <option value="merch">Merch by Amazon (4500 × 5400)</option>
+                <option value="custom">مقاس مخصص</option>
+            </select>
+            <div class="custom-dims" id="customDims">
+                <input type="number" id="customWidth" placeholder="العرض (px)">
+                <input type="number" id="customHeight" placeholder="الارتفاع (px)">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="dpiSelect">دقة الطباعة (DPI):</label>
+            <select id="dpiSelect">
+                <option value="300" selected>300 DPI (قياسي واحترافي للطباعة)</option>
+                <option value="150">150 DPI (متوسط)</option>
+            </select>
+        </div>
+
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="removeBg">
+            <label for="removeBg" style="margin:0;">إزالة الخلفية وجعلها شفافة (AI)</label>
+        </div>
+
+        <button type="submit" class="btn-primary">معالجة الصورة الآن</button>
+    </form>
+
+    <!-- زر الدفع يظهر بوضوح لحث المستخدم على الدفع أولاً -->
+    <button type="button" id="stripeBtn" class="btn-stripe" onclick="payWithStripe()">الدفع عبر Stripe لتفعيل التحميل ($5.00)</button>
+
+    <div class="loader" id="loader">جاري معالجة وتنعيم الصورة... يرجى الانتظار</div>
+    <div id="status"></div>
+
+    <!-- معاينة الصورة (مخفية حتى تتم المعالجة والدفع) -->
+    <div style="text-align: center; margin-top: 15px;">
+        <img id="imagePreview" src="" alt="معاينة الصورة" style="max-width: 100%; max-height: 250px; display: none; border-radius: 6px; border: 1px solid #cbd5e1; padding: 4px; background: #fff; object-fit: contain;">
+    </div>
+
+    <!-- زر التحميل مقفل تماماً ولا يظهر إلا بعد نجاح الدفع ومعالجة الصورة -->
+    <a href="/download/" id="downloadBtn" class="btn-download">تحميل الصورة الجاهزة للطباعة</a>
+</div>
+
+<script>
+    let isPaid = false;
+    let imageProcessed = false;
+
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentStatus = urlParams.get('payment');
+        const alertBox = document.getElementById('paymentAlert');
+        
+        if (paymentStatus === 'success') {
+            isPaid = true;
+            alertBox.style.display = 'block';
+            alertBox.style.backgroundColor = '#dcfce7';
+            alertBox.style.color = '#166534';
+            alertBox.innerText = 'تم الدفع بنجاح! يمكنك الآن معالجة ورؤية وتحميل صورتك.';
+            
+            // اخفاء زر الدفع بعد إتمامه
+            document.getElementById('stripeBtn').style.display = 'none';
+        } else if (paymentStatus === 'cancel') {
+            alertBox.style.display = 'block';
+            alertBox.style.backgroundColor = '#fee2e2';
+            alertBox.style.color = '#991b1b';
+            alertBox.innerText = 'تم إلغاء عملية الدفع.';
+        }
+    };
+
+    function toggleCustomDims() {
+        const platform = document.getElementById('platform').value;
+        document.getElementById('customDims').style.display = platform === 'custom' ? 'flex' : 'none';
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // التحقق مما إذا قام المستخدم بالدفع أم لا قبل إتاحة المعالجة والتحميل
+        if (!isPaid) {
+            alert('الرجاء إتمام عملية الدفع عبر Stripe أولاً لفتح ميزة المعالجة والتحميل!');
+            return;
+        }
+
+        const fileInput = document.getElementById('imageFile');
+        if (!fileInput.files.length) {
+            alert('الرجاء اختيار صورة أولاً!');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('platform', document.getElementById('platform').value);
+        formData.append('remove_bg', document.getElementById('removeBg').checked);
+        formData.append('dpi', document.getElementById('dpiSelect').value);
+
+        if (document.getElementById('platform').value === 'custom') {
+            const w = document.getElementById('customWidth').value;
+            const h = document.getElementById('customHeight').value;
+            if (w) formData.append('custom_width', w);
+            if (h) formData.append('custom_height', h);
+        }
+
+        const loader = document.getElementById('loader');
+        const status = document.getElementById('status');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const previewImg = document.getElementById('imagePreview');
+
+        loader.style.display = 'block';
+        status.innerText = '';
+        downloadBtn.style.display = 'none';
+        if (previewImg) previewImg.style.display = 'none';
+
+        try {
+            const response = await fetch('/process-image/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            loader.style.display = 'none';
+            if (response.ok) {
+                imageProcessed = true;
+                status.style.color = '#16a34a';
+                status.innerText = `${data.message} | الأبعاد: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
+                
+                // إظهار زر التحميل وصورة المعاينة فقط لأن المستخدم دافع وتمت المعالجة
+                if (isPaid) {
+                    downloadBtn.style.display = 'block';
+                }
+                
+                if (previewImg) {
+                    previewImg.src = '/download/?t=' + new Date().getTime();
+                    previewImg.style.display = 'block';
+                }
+            } else {
+                status.style.color = '#dc2626';
+                status.innerText = `حدث خطأ: ${data.detail}`;
+            }
+        } catch (err) {
+            loader.style.display = 'none';
+            status.style.color = '#dc2626';
+            status.innerText = 'تعذر الاتصال بالسيرفر.';
+        }
+    });
+
+    async function payWithStripe() {
+        const status = document.getElementById('status');
+        status.innerText = 'جاري التحويل إلى بوابة الدفع Stripe...';
+        try {
+            const response = await fetch('/create-checkout-session/', { method: 'POST' });
+            const data = await response.json();
+            if (data.checkout_url) {
+                window.location.href = data.checkout_url;
+            } else {
+                status.style.color = '#dc2626';
+                status.innerText = 'تأكد من إضافة مفتاح Stripe API الصحيح في ملف main.py';
+            }
+        } catch (err) {
+            status.style.color = '#dc2626';
+            status.innerText = 'خطأ في الاتصال ببوابة الدفع.';
+        }
+    }
+</script>
+
+</body>
+</html>
