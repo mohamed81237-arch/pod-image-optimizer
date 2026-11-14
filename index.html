@@ -23,76 +23,34 @@
             width: 100%;
             max-width: 480px;
         }
-        h2 {
-            margin-top: 0;
-            color: #0f172a;
-            text-align: center;
-        }
-        .form-group {
-            margin-bottom: 1.2rem;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
+        h2 { margin-top: 0; color: #0f172a; text-align: center; }
+        .form-group { margin-bottom: 1.2rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
         input[type="file"], select, input[type="number"] {
-            width: 100%;
-            padding: 0.6rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            box-sizing: border-box;
+            width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;
         }
-        .custom-dims {
-            display: none;
+        .checkbox-group {
+            display: flex;
+            align-items: center;
             gap: 10px;
-            margin-top: 0.5rem;
-        }
-        button {
-            width: 100%;
-            padding: 0.8rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: bold;
+            margin-bottom: 1.2rem;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 0.5rem;
-            transition: background 0.2s;
         }
-        .btn-primary {
-            background-color: #2563eb;
-            color: white;
+        .checkbox-group input { width: 18px; height: 18px; cursor: pointer; }
+        .custom-dims { display: none; gap: 10px; margin-top: 0.5rem; }
+        button {
+            width: 100%; padding: 0.8rem; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s;
         }
+        .btn-primary { background-color: #2563eb; color: white; }
         .btn-primary:hover { background-color: #1d4ed8; }
-        .btn-stripe {
-            background-color: #635bff;
-            color: white;
-            display: none;
-        }
+        .btn-stripe { background-color: #635bff; color: white; display: none; }
         .btn-stripe:hover { background-color: #4b45c6; }
         .btn-download {
-            background-color: #16a34a;
-            color: white;
-            display: none;
-            text-align: center;
-            text-decoration: none;
-            padding: 0.8rem;
-            border-radius: 6px;
-            font-weight: bold;
-            margin-top: 1rem;
+            background-color: #16a34a; color: white; display: none; text-align: center; text-decoration: none; padding: 0.8rem; border-radius: 6px; font-weight: bold; margin-top: 1rem;
         }
-        #status {
-            margin-top: 1rem;
-            text-align: center;
-            font-size: 0.95rem;
-        }
-        .loader {
-            display: none;
-            text-align: center;
-            color: #2563eb;
-            font-weight: bold;
-            margin-top: 1rem;
-        }
+        #status { margin-top: 1rem; text-align: center; font-size: 0.95rem; }
+        .loader { display: none; text-align: center; color: #2563eb; font-weight: bold; margin-top: 1rem; }
     </style>
 </head>
 <body>
@@ -139,6 +97,10 @@
             </select>
         </div>
 
+        <label class="checkbox-group">
+            <input type="checkbox" id="removeBg"> إزالة الخلفية وجعلها شفافة (AI)
+        </label>
+
         <button type="submit" class="btn-primary">معالجة ومعاينة الصورة مجانًا</button>
     </form>
 
@@ -155,7 +117,6 @@
 
 <script>
     let isPaid = false;
-    // تحديد رابط السيرفر الرسمي الثابت لتفادي أي مشاكل في التوجيه
     const API_BASE = "https://pod-image-optimizer-3.onrender.com";
 
     window.onload = function() {
@@ -200,6 +161,7 @@
         formData.append('file', fileInput.files[0]);
         formData.append('platform', document.getElementById('platform').value);
         formData.append('dpi', document.getElementById('dpiSelect').value);
+        formData.append('remove_bg', document.getElementById('removeBg').checked);
 
         if (document.getElementById('platform').value === 'custom') {
             const w = document.getElementById('customWidth').value;
