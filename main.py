@@ -32,6 +32,8 @@ PRICING_PLANS = {
     "pro": {"name": "باقة 50 صورة احترافية (الأفضل قيمة)", "amount": 2500}
 }
 
+# دعم طلبات HEAD و GET لخدمة الاستضافة والواجهة الرئيسية
+@app.head("/", include_in_schema=False)
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
     with open("index.html", "r", encoding="utf-8") as f:
