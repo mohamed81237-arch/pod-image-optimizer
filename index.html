@@ -48,14 +48,6 @@
             gap: 10px;
             margin-top: 0.5rem;
         }
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .checkbox-group input {
-            width: auto;
-        }
         button {
             width: 100%;
             padding: 0.8rem;
@@ -75,13 +67,13 @@
         .btn-stripe {
             background-color: #635bff;
             color: white;
-            display: none; /* مخفي لحين معاينة النتيجة */
+            display: none;
         }
         .btn-stripe:hover { background-color: #4b45c6; }
         .btn-download {
             background-color: #16a34a;
             color: white;
-            display: none; /* مخفي تماماً ولا يظهر إلا بعد الدفع */
+            display: none;
             text-align: center;
             text-decoration: none;
             padding: 0.8rem;
@@ -138,7 +130,6 @@
             </select>
         </div>
 
-        <!-- قائمة اختيار الباقات الاقتصادية -->
         <div class="form-group">
             <label for="pricingPlan">اختر باقة التسعير:</label>
             <select id="pricingPlan">
@@ -148,31 +139,24 @@
             </select>
         </div>
 
-        <div class="form-group checkbox-group">
-            <input type="checkbox" id="removeBg">
-            <label for="removeBg" style="margin:0;">إزالة الخلفية وجعلها شفافة (AI)</label>
-        </div>
-
-        <button type="submit" class="btn-primary">معالجة ومعاينة الصورة مجاناً</button>
+        <button type="submit" class="btn-primary">معالجة ومعاينة الصورة مجانًا</button>
     </form>
 
     <div class="loader" id="loader">جاري معالجة وتنعيم الصورة... يرجى الانتظار</div>
     <div id="status"></div>
 
-    <!-- نافذة المعاينة البصرية (تظهر مجاناً للعميل بعد المعالجة) -->
     <div style="text-align: center; margin-top: 15px;">
         <img id="imagePreview" src="" alt="معاينة الصورة" style="max-width: 100%; max-height: 250px; display: none; border-radius: 6px; border: 1px solid #cbd5e1; padding: 4px; background: #fff; object-fit: contain;">
     </div>
 
-    <!-- زر الدفع بناءً على الباقة (يظهر بعد معاينة النتيجة) -->
     <button type="button" id="stripeBtn" class="btn-stripe" onclick="payWithStripe()">إتمام الدفع لتفعيل التحميل</button>
-
-    <!-- زر التحميل النهائي (مغلق ومخفي تماماً إلا بعد نجاح الدفع) -->
-    <a href="/download/" id="downloadBtn" class="btn-download">تحميل الصورة الجاهزة للطباعة بجودتها الكاملة</a>
+    <a href="#" id="downloadBtn" class="btn-download" target="_blank">تحميل الصورة الجاهزة للطباعة بجودتها الكاملة</a>
 </div>
 
 <script>
     let isPaid = false;
+    // رابط السيرفر الأساسي المباشر لمنع أي خطأ في الاتصال
+    const API_BASE = window.location.origin;
 
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -186,7 +170,9 @@
             alertBox.style.color = '#166534';
             alertBox.innerText = 'تم الدفع بنجاح! زر التحميل متاح الآن أدناه.';
             
-            document.getElementById('downloadBtn').style.display = 'block';
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.href = `${API_BASE}/download/`;
+            downloadBtn.style.display = 'block';
             document.getElementById('stripeBtn').style.display = 'none';
         } else if (paymentStatus === 'cancel') {
             alertBox.style.display = 'block';
@@ -213,7 +199,6 @@
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
         formData.append('platform', document.getElementById('platform').value);
-        formData.append('remove_bg', document.getElementById('removeBg').checked);
         formData.append('dpi', document.getElementById('dpiSelect').value);
 
         if (document.getElementById('platform').value === 'custom') {
@@ -236,7 +221,7 @@
         if (previewImg) previewImg.style.display = 'none';
 
         try {
-            const response = await fetch('/process-image/', {
+            const response = await fetch(`${API_BASE}/process-image/`, {
                 method: 'POST',
                 body: formData
             });
@@ -248,13 +233,14 @@
                 status.innerText = `${data.message} | الأبعاد: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
                 
                 if (previewImg) {
-                    previewImg.src = '/download/?t=' + new Date().getTime();
+                    previewImg.src = `${API_BASE}/download/?t=` + new Date().getTime();
                     previewImg.style.display = 'block';
                 }
 
                 if (!isPaid) {
                     stripeBtn.style.display = 'block';
                 } else {
+                    downloadBtn.href = `${API_BASE}/download/`;
                     downloadBtn.style.display = 'block';
                 }
             } else {
@@ -264,7 +250,7 @@
         } catch (err) {
             loader.style.display = 'none';
             status.style.color = '#dc2626';
-            status.innerText = 'تعذر الاتصال بالسيرفر.';
+            status.innerText = 'تعذر الاتصال بالسيرفر. تأكد من عمل الشبكة.';
         }
     });
 
@@ -277,7 +263,7 @@
             const formData = new FormData();
             formData.append('plan', selectedPlan);
 
-            const response = await fetch('/create-checkout-session/', { 
+            const response = await fetch(`${API_BASE}/create-checkout-session/`, { 
                 method: 'POST',
                 body: formData
             });
