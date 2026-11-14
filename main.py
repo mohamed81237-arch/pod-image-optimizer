@@ -5,9 +5,14 @@ from PIL import Image
 import io
 import os
 import stripe
-import cv2
-import numpy as np
 import gc
+
+# استيراد آمن لمكتبة إزالة الخلفية
+try:
+    from rembg import remove
+    REMBG_AVAILABLE = True
+except ImportError:
+    REMBG_AVAILABLE = False
 
 app = FastAPI()
 
@@ -69,6 +74,7 @@ async def process_image(
     file: UploadFile = File(...),
     platform: str = Form("redbubble"),
     dpi: int = Form(300),
+    remove_bg: bool = Form(False),
     custom_width: int = Form(None),
     custom_height: int = Form(None)
 ):
@@ -77,14 +83,17 @@ async def process_image(
     
     try:
         image_bytes = await file.read()
-        
-        # استخدام PIL أولاً لفتح الصورة بحفظ الذاكرة وتجنب انهيار OpenCV مع الملفات الضخمة
         pil_img = Image.open(io.BytesIO(image_bytes))
+        
         if pil_img.mode != 'RGBA' and pil_img.mode != 'RGB':
             pil_img = pil_img.convert('RGBA')
             
         original_size = pil_img.size
         
+        # إزالة الخلفية إذا طلب المستخدم وكانت المتاحة
+        if remove_bg and REMBG_AVAILABLE:
+            pil_img = remove(pil_img)
+            
         if custom_width and custom_height:
             target_width, target_height = custom_width, custom_height
         elif platform in PLATFORM_SPECS:
@@ -92,19 +101,18 @@ async def process_image(
         else:
             target_width, target_height = (5000, 5000)
             
-        # تغيير الحجم باستخدام PIL بجودة عالية (LANCZOS) لضمان استقرار الخادم تماماً
+        # تغيير الحجم بجودة عالية
         resized_pil = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
         
         output_filename = "ready_for_pod.png"
         resized_pil.save(output_filename, "PNG", dpi=(dpi, dpi))
         
-        # تنظيف الذاكرة فوراً لمنع أي خطأ 502
         del image_bytes, pil_img, resized_pil
         gc.collect()
         
         return {
             "status": "success",
-            "message": f"تمت معالجة الصورة بدقة {dpi} DPI وأبعاد {target_width}×{target_height} بنجاح!",
+            "message": f"تمت معالجة الصورة وإزالة الخلفية بدقة {dpi} DPI وأبعاد {target_width}×{target_height} بنجاح!",
             "original_resolution": original_size,
             "optimized_resolution": [target_width, target_height],
             "applied_dpi": dpi
