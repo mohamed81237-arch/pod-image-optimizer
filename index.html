@@ -3,121 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تجهيز صور الطباعة عند الطلب (POD)</title>
+    <title>تجهيز وتحسين التصاميم للطباعة عند الطلب (POD)</title>
+    <!-- Tailwind CSS لتحقيق تصميم عصري واحترافي -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f4f6f8;
-            color: #1e293b;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .card {
-            background: #ffffff;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            width: 100%;
-            max-width: 480px;
-        }
-        h2 { margin-top: 0; color: #0f172a; text-align: center; }
-        .form-group { margin-bottom: 1.2rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
-        input[type="file"], select, input[type="number"] {
-            width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;
-        }
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 1.2rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .checkbox-group input { width: 18px; height: 18px; cursor: pointer; }
-        .custom-dims { display: none; gap: 10px; margin-top: 0.5rem; }
-        button {
-            width: 100%; padding: 0.8rem; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s;
-        }
-        .btn-primary { background-color: #2563eb; color: white; }
-        .btn-primary:hover { background-color: #1d4ed8; }
-        .btn-stripe { background-color: #635bff; color: white; display: none; }
-        .btn-stripe:hover { background-color: #4b45c6; }
-        .btn-download {
-            background-color: #16a34a; color: white; display: none; text-align: center; text-decoration: none; padding: 0.8rem; border-radius: 6px; font-weight: bold; margin-top: 1rem;
-        }
-        #status { margin-top: 1rem; text-align: center; font-size: 0.95rem; }
-        .loader { display: none; text-align: center; color: #2563eb; font-weight: bold; margin-top: 1rem; }
+        body { font-family: 'Cairo', sans-serif; }
+        .pricing-card.selected { border-color: #2563eb; background-color: #eff6ff; }
     </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-slate-100 min-h-screen py-10 px-4">
 
-<div class="card">
-    <h2>تجهيز التصاميم للطباعة (POD)</h2>
-    
-    <div id="paymentAlert" style="display:none; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center;"></div>
+    <div class="max-w-4xl mx-auto">
+        <!-- ترويسة الموقع -->
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3 bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
+                منصة تجهيز تصاميم (POD) الاحترافية
+            </h1>
+            <p class="text-slate-400 text-base md:text-lg">
+                اضبط أبعاد تصاميمك، نقِّ دقتها إلى 300 DPI، وأزل الخلفية بضغطة زر واحدة لتناسب Redbubble و Merch by Amazon.
+            </p>
+        </header>
 
-    <form id="uploadForm">
-        <div class="form-group">
-            <label for="imageFile">اختر التصميم (صورة):</label>
-            <input type="file" id="imageFile" accept="image/*" required>
-        </div>
+        <!-- صندوق التنبيهات -->
+        <div id="paymentAlert" class="hidden p-4 rounded-xl mb-6 text-center font-bold"></div>
 
-        <div class="form-group">
-            <label for="platform">المنصة المستهدفة:</label>
-            <select id="platform" onchange="toggleCustomDims()">
-                <option value="redbubble">Redbubble (5000 × 5000)</option>
-                <option value="teepublic">Teepublic (5000 × 5500)</option>
-                <option value="merch">Merch by Amazon (4500 × 5400)</option>
-                <option value="custom">مقاس مخصص</option>
-            </select>
-            <div class="custom-dims" id="customDims">
-                <input type="number" id="customWidth" placeholder="العرض (px)">
-                <input type="number" id="customHeight" placeholder="الارتفاع (px)">
+        <!-- الصندوق الرئيسي -->
+        <div class="bg-slate-800/80 backdrop-blur-md border border-slate-700/60 rounded-2xl shadow-2xl p-6 md:p-8">
+            <form id="uploadForm" class="space-y-6">
+                
+                <!-- رفع الصورة -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-slate-300">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
+                    <div class="border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-900/40 relative">
+                        <input type="file" id="imageFile" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" required onchange="updateFileName(this)">
+                        <div id="fileLabelText" class="text-slate-400">
+                            <span class="font-semibold text-blue-400">انقر لرفع الصورة</span> أو سحبها وإفلاتها هنا
+                        </div>
+                    </div>
+                </div>
+
+                <!-- إعدادات المنصة ودقة الطباعة -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="platform" class="block text-sm font-semibold mb-2 text-slate-300">المنصة المستهدفة:</label>
+                        <select id="platform" onchange="toggleCustomDims()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="redbubble">Redbubble (5000 × 5000 px)</option>
+                            <option value="teepublic">Teepublic (5000 × 5500 px)</option>
+                            <option value="merch">Merch by Amazon (4500 × 5400 px)</option>
+                            <option value="custom">مقاس مخصص</option>
+                        </select>
+                        <div class="custom-dims hidden grid-cols-2 gap-2 mt-3" id="customDims">
+                            <input type="number" id="customWidth" placeholder="العرض (px)" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm">
+                            <input type="number" id="customHeight" placeholder="الارتفاع (px)" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="dpiSelect" class="block text-sm font-semibold mb-2 text-slate-300">دقة الطباعة المطلوبة:</label>
+                        <select id="dpiSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="300" selected>300 DPI (قياسي واحترافي للطباعة)</option>
+                            <option value="150">150 DPI (متوسط)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- خيار إزالة الخلفية -->
+                <div class="flex items-center gap-3 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                    <input type="checkbox" id="removeBg" class="w-5 h-5 accent-blue-600 rounded cursor-pointer">
+                    <label for="removeBg" class="text-sm font-medium text-slate-200 cursor-pointer">
+                        إزالة الخلفية وجعلها شفافة بالذكاء الاصطناعي (AI Background Removal)
+                    </label>
+                </div>
+
+                <!-- اختيار باقة التسعير (بطاقات تفاعلية) -->
+                <div>
+                    <label class="block text-sm font-semibold mb-3 text-slate-300">اختر باقة التسعير:</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div onclick="selectPlan('single')" id="card-single" class="pricing-card selected border-2 border-slate-700 bg-slate-900/60 rounded-xl p-4 cursor-pointer transition hover:border-blue-500 text-center">
+                            <div class="text-sm text-slate-400 mb-1">فردي</div>
+                            <div class="text-xl font-bold text-blue-400 mb-2">$1.50</div>
+                            <div class="text-xs text-slate-300">صورة واحدة جاهزة</div>
+                        </div>
+                        <div onclick="selectPlan('starter')" id="card-starter" class="pricing-card border-2 border-slate-700 bg-slate-900/60 rounded-xl p-4 cursor-pointer transition hover:border-blue-500 text-center">
+                            <div class="text-sm text-slate-400 mb-1">باقة المبتدئين</div>
+                            <div class="text-xl font-bold text-blue-400 mb-2">$8.00</div>
+                            <div class="text-xs text-slate-300">10 صور (تخفيض 20%)</div>
+                        </div>
+                        <div onclick="selectPlan('pro')" id="card-pro" class="pricing-card border-2 border-slate-700 bg-slate-900/60 rounded-xl p-4 cursor-pointer transition hover:border-blue-500 text-center">
+                            <div class="text-sm text-slate-400 mb-1">الباقة الاحترافية</div>
+                            <div class="text-xl font-bold text-blue-400 mb-2">$25.00</div>
+                            <div class="text-xs text-slate-300">50 صورة (الأفضل قيمة)</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="pricingPlan" value="single">
+                </div>
+
+                <!-- زر المعالجة -->
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg transition duration-200 text-lg">
+                    معالجة ومعاينة الصورة مجانًا ⚡
+                </button>
+            </form>
+
+            <!-- مؤشر التحميل -->
+            <div class="loader hidden text-center my-6">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+                <p class="text-sm text-blue-400 mt-2 font-medium">جاري معالجة وتنعيم وتعديل أبعاد الصورة بدقة...</p>
+            </div>
+
+            <!-- رسالة الحالة -->
+            <div id="status" class="mt-4 text-center text-sm"></div>
+
+            <!-- منطقة معاينة الصورة -->
+            <div class="text-center mt-6">
+                <img id="imagePreview" src="" alt="معاينة الصورة" class="max-h-72 mx-auto rounded-xl border border-slate-700 shadow-md hidden bg-slate-900 p-2 object-contain">
+            </div>
+
+            <!-- أزرار الدفع والتحميل -->
+            <div class="mt-6 space-y-3">
+                <button type="button" id="stripeBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg transition duration-200 hidden text-lg flex items-center justify-center gap-2">
+                    <span>إتمام الدفع عبر Stripe بأمان</span> 💳
+                </button>
+                <a href="#" id="downloadBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition duration-200 hidden text-center block text-lg">
+                    تحميل الصورة الجاهزة للطباعة بجودتها الكاملة 📥
+                </a>
             </div>
         </div>
-
-        <div class="form-group">
-            <label for="dpiSelect">دقة الطباعة (DPI):</label>
-            <select id="dpiSelect">
-                <option value="300" selected>300 DPI (قياسي واحترافي للطباعة)</option>
-                <option value="150">150 DPI (متوسط)</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="pricingPlan">اختر باقة التسعير:</label>
-            <select id="pricingPlan">
-                <option value="single">صورة واحدة - $1.50</option>
-                <option value="starter">باقة 10 صور (تخفيض 20%) - $8.00</option>
-                <option value="pro">باقة 50 صورة احترافية - $25.00</option>
-            </select>
-        </div>
-
-        <label class="checkbox-group">
-            <input type="checkbox" id="removeBg"> إزالة الخلفية وجعلها شفافة (AI)
-        </label>
-
-        <button type="submit" class="btn-primary">معالجة ومعاينة الصورة مجانًا</button>
-    </form>
-
-    <div class="loader" id="loader">جاري معالجة وتنعيم الصورة... يرجى الانتظار</div>
-    <div id="status"></div>
-
-    <div style="text-align: center; margin-top: 15px;">
-        <img id="imagePreview" src="" alt="معاينة الصورة" style="max-width: 100%; max-height: 250px; display: none; border-radius: 6px; border: 1px solid #cbd5e1; padding: 4px; background: #fff; object-fit: contain;">
     </div>
-
-    <button type="button" id="stripeBtn" class="btn-stripe" onclick="payWithStripe()">إتمام الدفع لتفعيل التحميل</button>
-    <a href="#" id="downloadBtn" class="btn-download" target="_blank">تحميل الصورة الجاهزة للطباعة بجودتها الكاملة</a>
-</div>
 
 <script>
     let isPaid = false;
     const API_BASE = "https://pod-image-optimizer-3.onrender.com";
+
+    function selectPlan(planKey) {
+        document.getElementById('pricingPlan').value = planKey;
+        document.querySelectorAll('.pricing-card').forEach(card => card.classList.remove('selected'));
+        document.getElementById(`card-${planKey}`).classList.add('selected');
+    }
+
+    function updateFileName(input) {
+        if(input.files && input.files[0]) {
+            document.getElementById('fileLabelText').innerHTML = `الملف المختار: <span class="font-bold text-emerald-400">${input.files[0].name}</span>`;
+        }
+    }
 
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -126,26 +154,24 @@
         
         if (paymentStatus === 'success') {
             isPaid = true;
-            alertBox.style.display = 'block';
-            alertBox.style.backgroundColor = '#dcfce7';
-            alertBox.style.color = '#166534';
-            alertBox.innerText = 'تم الدفع بنجاح! زر التحميل متاح الآن أدناه.';
+            alertBox.classList.remove('hidden');
+            alertBox.classList.add('bg-emerald-900/80', 'text-emerald-200', 'border', 'border-emerald-700');
+            alertBox.innerText = 'تم الدفع بنجاح! زر التحميل الفوري متاح الآن في الأسفل.';
             
             const downloadBtn = document.getElementById('downloadBtn');
             downloadBtn.href = `${API_BASE}/download/`;
             downloadBtn.style.display = 'block';
             document.getElementById('stripeBtn').style.display = 'none';
         } else if (paymentStatus === 'cancel') {
-            alertBox.style.display = 'block';
-            alertBox.style.backgroundColor = '#fee2e2';
-            alertBox.style.color = '#991b1b';
+            alertBox.classList.remove('hidden');
+            alertBox.classList.add('bg-rose-900/80', 'text-rose-200', 'border', 'border-rose-700');
             alertBox.innerText = 'تم إلغاء عملية الدفع.';
         }
     };
 
     function toggleCustomDims() {
         const platform = document.getElementById('platform').value;
-        document.getElementById('customDims').style.display = platform === 'custom' ? 'flex' : 'none';
+        document.getElementById('customDims').style.display = platform === 'custom' ? 'grid' : 'none';
     }
 
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
@@ -170,7 +196,7 @@
             if (h) formData.append('custom_height', h);
         }
 
-        const loader = document.getElementById('loader');
+        const loader = document.querySelector('.loader');
         const status = document.getElementById('status');
         const previewImg = document.getElementById('imagePreview');
         const stripeBtn = document.getElementById('stripeBtn');
@@ -180,7 +206,7 @@
         status.innerText = '';
         downloadBtn.style.display = 'none';
         stripeBtn.style.display = 'none';
-        if (previewImg) previewImg.style.display = 'none';
+        previewImg.style.display = 'none';
 
         try {
             const response = await fetch(`${API_BASE}/process-image/`, {
@@ -191,27 +217,26 @@
 
             loader.style.display = 'none';
             if (response.ok) {
-                status.style.color = '#16a34a';
-                status.innerText = `${data.message} | الأبعاد: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
+                status.className = "mt-4 text-center text-sm font-medium text-emerald-400";
+                status.innerText = `${data.message} | الأبعاد النهائية: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
                 
-                if (previewImg) {
-                    previewImg.src = `${API_BASE}/download/?t=` + new Date().getTime();
-                    previewImg.style.display = 'block';
-                }
+                previewImg.src = `${API_BASE}/download/?t=` + new Date().getTime();
+                previewImg.style.display = 'block';
 
                 if (!isPaid) {
-                    stripeBtn.style.display = 'block';
+                    stripeBtn.style.display = 'flex';
+                    stripeBtn.onclick = payWithStripe;
                 } else {
                     downloadBtn.href = `${API_BASE}/download/`;
                     downloadBtn.style.display = 'block';
                 }
             } else {
-                status.style.color = '#dc2626';
+                status.className = "mt-4 text-center text-sm font-medium text-rose-400";
                 status.innerText = `حدث خطأ: ${data.detail}`;
             }
         } catch (err) {
             loader.style.display = 'none';
-            status.style.color = '#dc2626';
+            status.className = "mt-4 text-center text-sm font-medium text-rose-400";
             status.innerText = 'تعذر الاتصال بالسيرفر. تأكد من عمل الشبكة.';
         }
     });
@@ -219,7 +244,8 @@
     async function payWithStripe() {
         const status = document.getElementById('status');
         const selectedPlan = document.getElementById('pricingPlan').value;
-        status.innerText = 'جاري التحويل إلى بوابة الدفع Stripe...';
+        status.className = "mt-4 text-center text-sm font-medium text-blue-400";
+        status.innerText = 'جاري التحويل إلى بوابة الدفع الآمنة Stripe...';
         
         try {
             const formData = new FormData();
@@ -234,11 +260,11 @@
             if (data.checkout_url) {
                 window.location.href = data.checkout_url;
             } else {
-                status.style.color = '#dc2626';
-                status.innerText = 'تأكد من إضافة مفتاح Stripe API الصحيح في إعدادات المنصة';
+                status.className = "mt-4 text-center text-sm font-medium text-rose-400";
+                status.innerText = 'تأكد من إعداد مفتاح Stripe API في إعدادات المنصة.';
             }
         } catch (err) {
-            status.style.color = '#dc2626';
+            status.className = "mt-4 text-center text-sm font-medium text-rose-400";
             status.innerText = 'خطأ في الاتصال ببوابة الدفع.';
         }
     }
