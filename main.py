@@ -44,11 +44,14 @@ async def serve_frontend():
         return f.read()
 
 @app.post("/create-checkout-session/")
+@app.post("/create-checkout-session/")
 async def create_checkout_session(request: Request, plan: str = Form("single")):
     try:
+        # التأكد من اختيار باقة صحيحة أو الرجوع للافتراضية
         selected_plan = PRICING_PLANS.get(plan, PRICING_PLANS["single"])
         base_url = str(request.base_url).rstrip("/")
         
+        # إنشاء جلسة الدفع عبر Stripe ببيانات آمنة
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
@@ -57,7 +60,7 @@ async def create_checkout_session(request: Request, plan: str = Form("single")):
                     'product_data': {
                         'name': f'POD Service - {selected_plan["name"]}',
                     },
-                    'unit_amount': selected_plan["amount"],
+                    'unit_amount': int(selected_plan["amount"]),
                 },
                 'quantity': 1,
             }],
@@ -67,7 +70,9 @@ async def create_checkout_session(request: Request, plan: str = Form("single")):
         )
         return {"checkout_url": checkout_session.url}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # طباعة الخطأ في السجلات وإرجاع تفاصيل واضحة
+        print(f"Stripe Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Stripe Error: {str(e)}")
 
 @app.post("/process-image/")
 async def process_image(
