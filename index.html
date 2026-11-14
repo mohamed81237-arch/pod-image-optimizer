@@ -75,12 +75,13 @@
         .btn-stripe {
             background-color: #635bff;
             color: white;
+            display: none; /* مخفي لحين معاينة النتيجة */
         }
         .btn-stripe:hover { background-color: #4b45c6; }
         .btn-download {
             background-color: #16a34a;
             color: white;
-            display: none; /* مخفي افتراضياً ولن يظهر إلا بعد الدفع والمعالجة */
+            display: none; /* مخفي تماماً ولا يظهر إلا بعد الدفع */
             text-align: center;
             text-decoration: none;
             padding: 0.8rem;
@@ -137,32 +138,41 @@
             </select>
         </div>
 
+        <!-- قائمة اختيار الباقات الاقتصادية -->
+        <div class="form-group">
+            <label for="pricingPlan">اختر باقة التسعير:</label>
+            <select id="pricingPlan">
+                <option value="single">صورة واحدة - $1.50</option>
+                <option value="starter">باقة 10 صور (تخفيض 20%) - $8.00</option>
+                <option value="pro">باقة 50 صورة احترافية - $25.00</option>
+            </select>
+        </div>
+
         <div class="form-group checkbox-group">
             <input type="checkbox" id="removeBg">
             <label for="removeBg" style="margin:0;">إزالة الخلفية وجعلها شفافة (AI)</label>
         </div>
 
-        <button type="submit" class="btn-primary">معالجة الصورة الآن</button>
+        <button type="submit" class="btn-primary">معالجة ومعاينة الصورة مجاناً</button>
     </form>
-
-    <!-- زر الدفع يظهر بوضوح لحث المستخدم على الدفع أولاً -->
-    <button type="button" id="stripeBtn" class="btn-stripe" onclick="payWithStripe()">الدفع عبر Stripe لتفعيل التحميل ($5.00)</button>
 
     <div class="loader" id="loader">جاري معالجة وتنعيم الصورة... يرجى الانتظار</div>
     <div id="status"></div>
 
-    <!-- معاينة الصورة (مخفية حتى تتم المعالجة والدفع) -->
+    <!-- نافذة المعاينة البصرية (تظهر مجاناً للعميل بعد المعالجة) -->
     <div style="text-align: center; margin-top: 15px;">
         <img id="imagePreview" src="" alt="معاينة الصورة" style="max-width: 100%; max-height: 250px; display: none; border-radius: 6px; border: 1px solid #cbd5e1; padding: 4px; background: #fff; object-fit: contain;">
     </div>
 
-    <!-- زر التحميل مقفل تماماً ولا يظهر إلا بعد نجاح الدفع ومعالجة الصورة -->
-    <a href="/download/" id="downloadBtn" class="btn-download">تحميل الصورة الجاهزة للطباعة</a>
+    <!-- زر الدفع بناءً على الباقة (يظهر بعد معاينة النتيجة) -->
+    <button type="button" id="stripeBtn" class="btn-stripe" onclick="payWithStripe()">إتمام الدفع لتفعيل التحميل</button>
+
+    <!-- زر التحميل النهائي (مغلق ومخفي تماماً إلا بعد نجاح الدفع) -->
+    <a href="/download/" id="downloadBtn" class="btn-download">تحميل الصورة الجاهزة للطباعة بجودتها الكاملة</a>
 </div>
 
 <script>
     let isPaid = false;
-    let imageProcessed = false;
 
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -174,9 +184,9 @@
             alertBox.style.display = 'block';
             alertBox.style.backgroundColor = '#dcfce7';
             alertBox.style.color = '#166534';
-            alertBox.innerText = 'تم الدفع بنجاح! يمكنك الآن معالجة ورؤية وتحميل صورتك.';
+            alertBox.innerText = 'تم الدفع بنجاح! زر التحميل متاح الآن أدناه.';
             
-            // اخفاء زر الدفع بعد إتمامه
+            document.getElementById('downloadBtn').style.display = 'block';
             document.getElementById('stripeBtn').style.display = 'none';
         } else if (paymentStatus === 'cancel') {
             alertBox.style.display = 'block';
@@ -194,12 +204,6 @@
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        // التحقق مما إذا قام المستخدم بالدفع أم لا قبل إتاحة المعالجة والتحميل
-        if (!isPaid) {
-            alert('الرجاء إتمام عملية الدفع عبر Stripe أولاً لفتح ميزة المعالجة والتحميل!');
-            return;
-        }
-
         const fileInput = document.getElementById('imageFile');
         if (!fileInput.files.length) {
             alert('الرجاء اختيار صورة أولاً!');
@@ -221,12 +225,14 @@
 
         const loader = document.getElementById('loader');
         const status = document.getElementById('status');
-        const downloadBtn = document.getElementById('downloadBtn');
         const previewImg = document.getElementById('imagePreview');
+        const stripeBtn = document.getElementById('stripeBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
 
         loader.style.display = 'block';
         status.innerText = '';
         downloadBtn.style.display = 'none';
+        stripeBtn.style.display = 'none';
         if (previewImg) previewImg.style.display = 'none';
 
         try {
@@ -238,18 +244,18 @@
 
             loader.style.display = 'none';
             if (response.ok) {
-                imageProcessed = true;
                 status.style.color = '#16a34a';
                 status.innerText = `${data.message} | الأبعاد: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
-                
-                // إظهار زر التحميل وصورة المعاينة فقط لأن المستخدم دافع وتمت المعالجة
-                if (isPaid) {
-                    downloadBtn.style.display = 'block';
-                }
                 
                 if (previewImg) {
                     previewImg.src = '/download/?t=' + new Date().getTime();
                     previewImg.style.display = 'block';
+                }
+
+                if (!isPaid) {
+                    stripeBtn.style.display = 'block';
+                } else {
+                    downloadBtn.style.display = 'block';
                 }
             } else {
                 status.style.color = '#dc2626';
@@ -264,15 +270,24 @@
 
     async function payWithStripe() {
         const status = document.getElementById('status');
+        const selectedPlan = document.getElementById('pricingPlan').value;
         status.innerText = 'جاري التحويل إلى بوابة الدفع Stripe...';
+        
         try {
-            const response = await fetch('/create-checkout-session/', { method: 'POST' });
+            const formData = new FormData();
+            formData.append('plan', selectedPlan);
+
+            const response = await fetch('/create-checkout-session/', { 
+                method: 'POST',
+                body: formData
+            });
             const data = await response.json();
+            
             if (data.checkout_url) {
                 window.location.href = data.checkout_url;
             } else {
                 status.style.color = '#dc2626';
-                status.innerText = 'تأكد من إضافة مفتاح Stripe API الصحيح في ملف main.py';
+                status.innerText = 'تأكد من إضافة مفتاح Stripe API الصحيح في إعدادات المنصة';
             }
         } catch (err) {
             status.style.color = '#dc2626';
