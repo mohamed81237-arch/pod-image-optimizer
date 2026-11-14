@@ -21,7 +21,7 @@ app.add_middleware(
 
 stripe.api_key = os.getenv("STRIPE_API_KEY", "sk_test_your_stripe_secret_key_here")
 
-# استخدام النموذج الخفيف u2netp لتوفير الرام (RAM) في الاستضافة المجانية
+# استخدام النموذج الخفيف u2netp لتوفير الذاكرة في الاستضافة المجانية
 rembg_session = new_session("u2netp")
 
 PLATFORM_SPECS = {
@@ -30,6 +30,7 @@ PLATFORM_SPECS = {
     "merch": (4500, 5400)
 }
 
+# جدول الأسعار الاقتصادية والباقات
 PRICING_PLANS = {
     "single": {"name": "صورة واحدة (تجربة/فردي)", "amount": 150},
     "starter": {"name": "باقة 10 صور (تخفيض 20%)", "amount": 800},
@@ -45,7 +46,6 @@ async def serve_frontend():
 async def create_checkout_session(request: Request, plan: str = Form("single")):
     try:
         selected_plan = PRICING_PLANS.get(plan, PRICING_PLANS["single"])
-        # التقاط رابط السيرفر تلقائياً (سواء كان محلياً أو على Render)
         base_url = str(request.base_url).rstrip("/")
         
         checkout_session = stripe.checkout.Session.create(
@@ -84,7 +84,6 @@ async def process_image(
         image_bytes = await file.read()
         
         if remove_bg:
-            # تمرير الجلسة الخفيفة u2netp
             image_bytes = remove(image_bytes, session=rembg_session)
             
         nparr = np.frombuffer(image_bytes, np.uint8)
@@ -116,7 +115,6 @@ async def process_image(
             pil_img = Image.open(io.BytesIO(encoded_image.tobytes()))
             pil_img.save(output_filename, "PNG", dpi=(dpi, dpi))
         
-        # تنظيف الذاكرة المؤقتة بعد كل صورة للحفاظ على استقرار السيرفر المجاني
         del img_cv, resized_cv, nparr, image_bytes
         gc.collect()
         
