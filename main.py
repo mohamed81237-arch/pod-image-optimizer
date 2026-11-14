@@ -2,7 +2,6 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
-from rembg import remove, new_session
 import io
 import os
 import stripe
@@ -21,16 +20,12 @@ app.add_middleware(
 
 stripe.api_key = os.getenv("STRIPE_API_KEY", "sk_test_your_stripe_secret_key_here")
 
-# استخدام النموذج الخفيف u2netp لتوفير الذاكرة في الاستضافة المجانية
-rembg_session = new_session("u2netp")
-
 PLATFORM_SPECS = {
     "redbubble": (5000, 5000),
     "teepublic": (5000, 5500),
     "merch": (4500, 5400)
 }
 
-# جدول الأسعار الاقتصادية والباقات
 PRICING_PLANS = {
     "single": {"name": "صورة واحدة (تجربة/فردي)", "amount": 150},
     "starter": {"name": "باقة 10 صور (تخفيض 20%)", "amount": 800},
@@ -72,7 +67,6 @@ async def create_checkout_session(request: Request, plan: str = Form("single")):
 async def process_image(
     file: UploadFile = File(...),
     platform: str = Form("redbubble"),
-    remove_bg: bool = Form(False),
     dpi: int = Form(300),
     custom_width: int = Form(None),
     custom_height: int = Form(None)
@@ -82,10 +76,6 @@ async def process_image(
     
     try:
         image_bytes = await file.read()
-        
-        if remove_bg:
-            image_bytes = remove(image_bytes, session=rembg_session)
-            
         nparr = np.frombuffer(image_bytes, np.uint8)
         img_cv = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
         
@@ -120,11 +110,10 @@ async def process_image(
         
         return {
             "status": "success",
-            "message": f"تمت المعالجة بدقة {dpi} DPI وأبعاد {target_width}×{target_height} بنجاح!",
+            "message": f"تمت معالجة وتنعيم الصورة بدقة {dpi} DPI وأبعاد {target_width}×{target_height} بنجاح!",
             "original_resolution": original_size,
             "optimized_resolution": [target_width, target_height],
-            "applied_dpi": dpi,
-            "background_removed": remove_bg
+            "applied_dpi": dpi
         }
         
     except Exception as e:
