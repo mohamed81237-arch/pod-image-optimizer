@@ -155,8 +155,8 @@
 
 <script>
     let isPaid = false;
-    // رابط السيرفر الأساسي المباشر لمنع أي خطأ في الاتصال
-    const API_BASE = window.location.origin;
+    // تحديد رابط السيرفر الرسمي الثابت لتفادي أي مشاكل في التوجيه
+    const API_BASE = "https://pod-image-optimizer-3.onrender.com";
 
     window.onload = function() {
         const urlParams = new URLSearchParams(window.location.search);
