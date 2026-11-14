@@ -32,7 +32,6 @@ PRICING_PLANS = {
     "pro": {"name": "باقة 50 صورة احترافية (الأفضل قيمة)", "amount": 2500}
 }
 
-# دعم طلبات HEAD و GET لخدمة الاستضافة والواجهة الرئيسية
 @app.head("/", include_in_schema=False)
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
@@ -78,10 +77,13 @@ async def process_image(
     
     try:
         image_bytes = await file.read()
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img_cv = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
         
-        original_size = (img_cv.shape[1], img_cv.shape[0])
+        # استخدام PIL أولاً لفتح الصورة بحفظ الذاكرة وتجنب انهيار OpenCV مع الملفات الضخمة
+        pil_img = Image.open(io.BytesIO(image_bytes))
+        if pil_img.mode != 'RGBA' and pil_img.mode != 'RGB':
+            pil_img = pil_img.convert('RGBA')
+            
+        original_size = pil_img.size
         
         if custom_width and custom_height:
             target_width, target_height = custom_width, custom_height
@@ -90,29 +92,19 @@ async def process_image(
         else:
             target_width, target_height = (5000, 5000)
             
-        resized_cv = cv2.resize(img_cv, (target_width, target_height), interpolation=cv2.INTER_CUBIC)
+        # تغيير الحجم باستخدام PIL بجودة عالية (LANCZOS) لضمان استقرار الخادم تماماً
+        resized_pil = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
         
-        if len(resized_cv.shape) == 3 and resized_cv.shape[2] == 4:
-            b, g, r, a = cv2.split(resized_cv)
-            rgb = cv2.merge([b, g, r])
-            smoothed_rgb = cv2.bilateralFilter(rgb, d=5, sigmaColor=50, sigmaSpace=50)
-            resized_cv = cv2.merge([smoothed_rgb[:,:,0], smoothed_rgb[:,:,1], smoothed_rgb[:,:,2], a])
-        else:
-            resized_cv = cv2.bilateralFilter(resized_cv, d=5, sigmaColor=50, sigmaSpace=50)
-
         output_filename = "ready_for_pod.png"
+        resized_pil.save(output_filename, "PNG", dpi=(dpi, dpi))
         
-        success, encoded_image = cv2.imencode('.png', resized_cv)
-        if success:
-            pil_img = Image.open(io.BytesIO(encoded_image.tobytes()))
-            pil_img.save(output_filename, "PNG", dpi=(dpi, dpi))
-        
-        del img_cv, resized_cv, nparr, image_bytes
+        # تنظيف الذاكرة فوراً لمنع أي خطأ 502
+        del image_bytes, pil_img, resized_pil
         gc.collect()
         
         return {
             "status": "success",
-            "message": f"تمت معالجة وتنعيم الصورة بدقة {dpi} DPI وأبعاد {target_width}×{target_height} بنجاح!",
+            "message": f"تمت معالجة الصورة بدقة {dpi} DPI وأبعاد {target_width}×{target_height} بنجاح!",
             "original_resolution": original_size,
             "optimized_resolution": [target_width, target_height],
             "applied_dpi": dpi
