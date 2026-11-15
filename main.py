@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import io
 import os
-import stripe
 import gc
 
 try:
@@ -22,22 +21,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-stripe.api_key = os.getenv("STRIPE_API_KEY", "sk_test_your_stripe_secret_key_here")
-
 PLATFORM_SPECS = {
     "redbubble": (5000, 5000),
     "teepublic": (5000, 5500),
     "merch": (4500, 5400)
 }
 
-PRICING_PLANS = {
-    "single": {"name": "صورة واحدة (تجربة/فردي)", "amount": 150},
-    "starter": {"name": "باقة 10 صور (تخفيض 20%)", "amount": 800},
-    "pro": {"name": "باقة 50 صورة احترافية (الأفضل قيمة)", "amount": 2500}
-}
-
-# واجهة SaaS عصرية وفخمة جداً مع المعاينة الفورية وفحص الخلفيات ودليل البائعين
-LUXURY_HTML_UI = """
+# واجهة SaaS مع جمع البريد الإلكتروني وزر الدعم الاختياري (Buy Me a Coffee)
+COMMUNITY_HTML_UI = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -55,11 +46,6 @@ LUXURY_HTML_UI = """
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
-        .pricing-card.selected {
-            border-color: #3b82f6;
-            background: rgba(30, 58, 138, 0.4);
-            box-shadow: 0 0 25px rgba(59, 130, 246, 0.25);
-        }
         .checkerboard {
             background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==");
         }
@@ -70,19 +56,16 @@ LUXURY_HTML_UI = """
     <div class="max-w-4xl mx-auto">
         <!-- ترويسة الموقع الفخمة -->
         <header class="text-center mb-12">
-            <div class="inline-block px-4 py-1.5 mb-4 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold tracking-wide">
-                منصة احترافية مدعومة بالذكاء الاصطناعي ⚡
+            <div class="inline-block px-4 py-1.5 mb-4 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold tracking-wide">
+                أداة مجتمعية مجانية للمصممين ⚡
             </div>
-            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-slate-200 to-blue-400 bg-clip-text text-transparent">
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
                 تجهيز تصاميم الطباعة (POD)
             </h1>
             <p class="text-slate-400 text-base md:text-lg max-w-2xl mx-auto">
-                أزل الخلفية بدقة فائقة واضبط الأبعاد لـ Redbubble و Amazon بضغطة زر واحدة في بيئة عمل عصرية.
+                أزل الخلفية بدقة فائقة واضبط الأبعاد لـ Redbubble و Amazon بضغطة زر ومجاناً تماماً.
             </p>
         </header>
-
-        <!-- صندوق التنبيهات -->
-        <div id="paymentAlert" class="hidden p-4 rounded-2xl mb-6 text-center font-bold shadow-lg"></div>
 
         <!-- صندوق العمل الرئيسي (Glass Panel) -->
         <div class="glass-panel rounded-3xl p-6 md:p-10">
@@ -91,24 +74,24 @@ LUXURY_HTML_UI = """
                 <!-- منطقة رفع الملفات العائمة (Dropzone) -->
                 <div>
                     <label class="block text-sm font-semibold mb-3 text-slate-200">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
-                    <div class="border-2 border-dashed border-slate-700 hover:border-blue-500/80 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 bg-slate-900/50 hover:bg-slate-900/80 relative group">
+                    <div class="border-2 border-dashed border-slate-700 hover:border-emerald-500/80 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 bg-slate-900/50 hover:bg-slate-900/80 relative group">
                         <input type="file" id="imageFile" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" required onchange="handleFileSelect(this)">
                         <div id="fileLabelText" class="space-y-2">
-                            <div class="w-12 h-12 mx-auto rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition duration-300">
+                            <div class="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition duration-300">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             </div>
                             <div class="text-slate-300 font-medium">
-                                <span class="text-blue-400 font-semibold underline underline-offset-4">انقر لرفع الصورة</span> أو اسحبها وأفلتها هنا
+                                <span class="text-emerald-400 font-semibold underline underline-offset-4">انقر لرفع الصورة</span> أو اسحبها وأفلتها هنا
                             </div>
                             <p class="text-xs text-slate-500">PNG, JPG, WEBP بجودة عالية</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- 🌟 معاينة فورية (Live Local Preview) مع أزرار فحص الخلفيات المتعددة -->
+                <!-- 🌟 معاينة فورية (Live Local Preview) مع أزرار فحص الخلفيات -->
                 <div id="instantPreviewContainer" class="hidden p-4 rounded-2xl bg-slate-950/60 border border-slate-800 transition-all">
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-semibold text-blue-400 flex items-center gap-1.5">
+                        <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                             معاينة الملف الأصلي قبل المعالجة
                         </span>
@@ -120,10 +103,10 @@ LUXURY_HTML_UI = """
                     <!-- أزرار تبديل الخلفية (QA Background Switcher) -->
                     <div class="flex items-center justify-center gap-2 mb-3">
                         <span class="text-xs text-slate-400 ml-1">فحص على لون المنتج:</span>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-600 checkerboard focus:ring-2 ring-blue-500" title="خلفية شفافة"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-black focus:ring-2 ring-blue-500" title="تيشرت أسود"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-[#0f172a] focus:ring-2 ring-blue-500" title="تيشرت كحلي"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-white focus:ring-2 ring-blue-500" title="تيشرت أبيض"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-600 checkerboard focus:ring-2 ring-emerald-500" title="خلفية شفافة"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-black focus:ring-2 ring-emerald-500" title="تيشرت أسود"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-[#0f172a] focus:ring-2 ring-emerald-500" title="تيشرت كحلي"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-white focus:ring-2 ring-emerald-500" title="تيشرت أبيض"></button>
                     </div>
 
                     <div id="instantPreviewBox" class="relative w-full h-56 rounded-xl overflow-hidden flex items-center justify-center checkerboard transition-colors duration-300">
@@ -135,21 +118,21 @@ LUXURY_HTML_UI = """
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="platform" class="block text-sm font-semibold mb-2 text-slate-300">المنصة المستهدفة:</label>
-                        <select id="platform" onchange="toggleCustomDims()" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+                        <select id="platform" onchange="toggleCustomDims()" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition">
                             <option value="redbubble">Redbubble (5000 × 5000 px)</option>
                             <option value="teepublic">Teepublic (5000 × 5500 px)</option>
                             <option value="merch">Merch by Amazon (4500 × 5400 px)</option>
                             <option value="custom">مقاس مخصص</option>
                         </select>
                         <div class="custom-dims hidden grid-cols-2 gap-3 mt-3" id="customDims">
-                            <input type="number" id="customWidth" placeholder="العرض (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none focus:border-blue-500">
-                            <input type="number" id="customHeight" placeholder="الارتفاع (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none focus:border-blue-500">
+                            <input type="number" id="customWidth" placeholder="العرض (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none focus:border-emerald-500">
+                            <input type="number" id="customHeight" placeholder="الارتفاع (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none focus:border-emerald-500">
                         </div>
                     </div>
 
                     <div>
                         <label for="dpiSelect" class="block text-sm font-semibold mb-2 text-slate-300">دقة الطباعة المطلوبة:</label>
-                        <select id="dpiSelect" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+                        <select id="dpiSelect" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition">
                             <option value="300" selected>300 DPI (قياسي واحترافي للطباعة)</option>
                             <option value="150">150 DPI (متوسط)</option>
                         </select>
@@ -158,82 +141,74 @@ LUXURY_HTML_UI = """
 
                 <!-- خيار إزالة الخلفية الفاخر -->
                 <div class="flex items-center gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700/60">
-                    <input type="checkbox" id="removeBg" class="w-5 h-5 accent-blue-600 rounded cursor-pointer" checked>
+                    <input type="checkbox" id="removeBg" class="w-5 h-5 accent-emerald-600 rounded cursor-pointer" checked>
                     <label for="removeBg" class="text-sm font-medium text-slate-200 cursor-pointer select-none">
                         إزالة الخلفية وجعلها شفافة بالذكاء الاصطناعي (AI Background Removal) ✨
                     </label>
                 </div>
 
-                <!-- بطاقات التسعير المتناسقة -->
-                <div>
-                    <label class="block text-sm font-semibold mb-3 text-slate-300">اختر باقة التسعير للحصول على الجودة الكاملة (300 DPI):</label>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" dir="ltr">
-                        <div onclick="selectPlan('pro')" id="card-pro" class="pricing-card border border-slate-700/80 bg-slate-900/60 rounded-2xl p-5 cursor-pointer transition hover:border-blue-500 text-center">
-                            <div class="text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">الباقة الاحترافية</div>
-                            <div class="text-2xl font-black text-blue-400 mb-2">$25.00</div>
-                            <div class="text-xs text-slate-300">50 صورة جاهزة للطباعة</div>
-                        </div>
-                        <div onclick="selectPlan('starter')" id="card-starter" class="pricing-card border border-slate-700/80 bg-slate-900/60 rounded-2xl p-5 cursor-pointer transition hover:border-blue-500 text-center">
-                            <div class="text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">باقة المبتدئين</div>
-                            <div class="text-2xl font-black text-blue-400 mb-2">$8.00</div>
-                            <div class="text-xs text-slate-300">10 صور (تخفيض 20%)</div>
-                        </div>
-                        <div onclick="selectPlan('single')" id="card-single" class="pricing-card selected border border-slate-700/80 bg-slate-900/60 rounded-2xl p-5 cursor-pointer transition hover:border-blue-500 text-center">
-                            <div class="text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">فردي</div>
-                            <div class="text-2xl font-black text-blue-400 mb-2">$1.50</div>
-                            <div class="text-xs text-slate-300">صورة واحدة مجربة</div>
-                        </div>
-                    </div>
-                    <input type="hidden" id="pricingPlan" value="single">
-                </div>
-
-                <!-- زر الإرسال -->
-                <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-600/20 transition duration-300 text-lg">
-                    معالجة ومعاينة التصميم مجانًا ⚡
+                <!-- زر الإرسال المجاني -->
+                <button type="submit" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition duration-300 text-lg">
+                    معالجة وتحميل التصميم مجانًا ⚡
                 </button>
             </form>
 
             <!-- مؤشر التحميل -->
             <div class="loader hidden text-center my-8">
-                <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
-                <p class="text-sm text-blue-400 mt-3 font-medium">جاري معالجة الصورة وإزالة الخلفية بالذكاء الاصطناعي...</p>
+                <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent"></div>
+                <p class="text-sm text-emerald-400 mt-3 font-medium">جاري معالجة الصورة وضبطها لجودة 300 DPI...</p>
             </div>
 
             <div id="status" class="mt-6 text-center text-sm font-medium"></div>
 
-            <!-- معاينة الجودة المنخفضة المجانية بعد المعالجة -->
+            <!-- معاينة النتيجة وجمع البريد الإلكتروني -->
             <div class="text-center mt-6 p-5 bg-slate-900/80 rounded-2xl border border-slate-700/60 hidden shadow-inner" id="previewContainer">
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs text-amber-400 font-bold bg-amber-500/10 py-1.5 px-3 rounded-full border border-amber-500/20">
-                        ⚠️ معاينة مجانية بجودة منخفضة (غير صالحة للطباعة المباشرة)
+                    <span class="text-xs text-emerald-400 font-bold bg-emerald-500/10 py-1.5 px-3 rounded-full border border-emerald-500/20">
+                        ✨ النتيجة جاهزة للطباعة بجودة 300 DPI
                     </span>
                     
                     <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800">
                         <span class="text-xs text-slate-400 ml-1">فحص النتيجة:</span>
                         <button type="button" onclick="changePreviewBg('processedPreviewBox', 'checker')" class="w-5 h-5 rounded-full border border-slate-600 checkerboard" title="شفاف"></button>
                         <button type="button" onclick="changePreviewBg('processedPreviewBox', 'black')" class="w-5 h-5 rounded-full border border-slate-600 bg-black" title="أسود"></button>
-                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'navy')" class="w-5 h-5 rounded-full border border-slate-600 bg-[#0f172a]" title="كحلي"></button>
-                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'white')" class="w-5 h-5 rounded-full border border-slate-600 bg-white" title="أبيض"></button>
+                        <button type="button" onclick="changePreviewBox('processedPreviewBox', 'navy')" class="w-5 h-5 rounded-full border border-slate-600 bg-[#0f172a]" title="كحلي"></button>
+                        <button type="button" onclick="changePreviewBox('processedPreviewBox', 'white')" class="w-5 h-5 rounded-full border border-slate-600 bg-white" title="أبيض"></button>
                     </div>
                 </div>
 
                 <div id="processedPreviewBox" class="p-4 checkerboard rounded-xl border border-slate-800 transition-colors duration-300">
                     <img id="imagePreview" src="" alt="معاينة الصورة" class="max-h-72 mx-auto rounded-lg shadow-2xl object-contain">
                 </div>
-            </div>
 
-            <!-- الأزرار النهائية (دفع وتحميل) -->
-            <div class="mt-8 space-y-4">
-                <button type="button" id="stripeBtn" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-indigo-600/20 transition duration-300 hidden text-lg flex items-center justify-center gap-2">
-                    <span>إتمام الدفع لتحميل الملف الأصلي (300 DPI)</span> 💳
-                </button>
-                <a href="#" id="downloadBtn" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition duration-300 text-center block text-lg">
-                    تحميل الصورة الأصلية للطباعة بجودتها الكاملة 📥
-                </a>
+                <!-- 🌟 صندوق جمع البريد الإلكتروني الاختياري (Newsletter / Lead Magnet) -->
+                <div class="mt-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 text-right">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">احصل على دليل استراتيجيات زيادة مبيعات Redbubble مجاناً:</label>
+                    <div class="flex gap-2">
+                        <input type="email" id="userEmail" placeholder="أدخل بريدك الإلكتروني (اختياري)" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-emerald-500">
+                        <button type="button" onclick="saveEmail()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold px-4 py-2.5 rounded-xl text-sm transition">حفظ</button>
+                    </div>
+                    <p id="emailMsg" class="text-xs text-emerald-400 mt-2 hidden">✨ شكراً لك! تم تسجيل بريدك بنجاح.</p>
+                </div>
+
+                <!-- زر التحميل المباشر المجاني -->
+                <div class="mt-6">
+                    <a href="#" id="downloadBtn" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition duration-300 text-center block text-lg">
+                        تحميل الصورة الأصلية للطباعة بجودتها الكاملة 300 DPI مجاناً 📥
+                    </a>
+                </div>
+
+                <!-- 🌟 زر التبرع الاختياري (Buy Me a Coffee / Support) -->
+                <div class="mt-6 pt-4 border-t border-slate-800 text-center">
+                    <p class="text-xs text-slate-400 mb-2">هل أعجبتك الأداة وساعدت عملك؟ يمكنك دعم استمرار السيرفر:</p>
+                    <a href="https://buymeacoffee.com/your-username" target="_blank" class="inline-flex items-center gap-2 bg-[#ffdd00] hover:bg-[#f2d100] text-slate-950 font-bold px-6 py-2.5 rounded-xl text-xs transition shadow-md">
+                        <span>☕ ادعمني بقهوة (Buy Me a Coffee)</span>
+                    </a>
+                </div>
             </div>
         </div>
 
-        <!-- 🌟 قسم دليل البائعين الإرشادي (POD Seller's Guide - لزيادة قيمة الموقع و SEO) -->
+        <!-- قسم دليل البائعين الإرشادي -->
         <section class="mt-16">
             <div class="text-center mb-10">
                 <h2 class="text-2xl font-bold text-white mb-3">دليل تجهيز التصاميم للطباعة حسب الطلب (POD)</h2>
@@ -242,37 +217,29 @@ LUXURY_HTML_UI = """
 
             <div class="grid md:grid-cols-3 gap-6">
                 <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl mb-4">👕</div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">👕</div>
                     <h3 class="text-base font-bold text-white mb-2">الفحص على الألوان الداكنة</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">اختبر تصميمك دائماً على خلفية سوداء أو كحلية لكشف أي حواف بيضاء غير مرغوب فيها قبل رفعها للمتجر[cite: 3].</p>
+                    <p class="text-slate-400 text-xs leading-relaxed">اختبر تصميمك دائماً على خلفية سوداء أو كحلية لكشف أي حواف بيضاء غير مرغوب فيها قبل رفعها للمتجر.</p>
                 </div>
 
                 <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">📐</div>
+                    <div class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center text-xl mb-4">📐</div>
                     <h3 class="text-base font-bold text-white mb-2">معيار 300 DPI</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">تأكد من تصدير ملفك بالأبعاد والمقاسات الصحيحة للمنصة المستهدفة لتفادي بهتان الطباعة[cite: 3].</p>
+                    <p class="text-slate-400 text-xs leading-relaxed">تأكد من تصدير ملفك بالأبعاد والمقاسات الصحيحة للمنصة المستهدفة لتفادي بهتان الطباعة.</p>
                 </div>
 
                 <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-4">✨</div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">✨</div>
                     <h3 class="text-base font-bold text-white mb-2">نسخ مخصصة لكل منتج</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">التصاميم ذات النصوص الفاتحة تتطلب عناية خاصة عند طباعتها على منتجات بيضاء أو سوداء[cite: 3].</p>
+                    <p class="text-slate-400 text-xs leading-relaxed">التصاميم ذات النصوص الفاتحة تتطلب عناية خاصة عند طباعتها على منتجات بيضاء أو سوداء.</p>
                 </div>
             </div>
         </section>
     </div>
 
 <script>
-    let isPaid = false;
     const API_BASE = window.location.origin;
 
-    function selectPlan(planKey) {
-        document.getElementById('pricingPlan').value = planKey;
-        document.querySelectorAll('.pricing-card').forEach(card => card.classList.remove('selected'));
-        document.getElementById(`card-${planKey}`).classList.add('selected');
-    }
-
-    // 1. المعاينة الفورية (Live Local Preview) عند اختيار الملف
     function handleFileSelect(input) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
@@ -300,7 +267,6 @@ LUXURY_HTML_UI = """
         }
     }
 
-    // 2. دالة تبديل الخلفية (QA Background Switcher)
     function changePreviewBg(boxId, bgType) {
         const box = document.getElementById(boxId);
         box.classList.remove('bg-black', 'bg-white', 'bg-[#0f172a]', 'checkerboard');
@@ -316,31 +282,19 @@ LUXURY_HTML_UI = """
         }
     }
 
-    window.onload = function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const paymentStatus = urlParams.get('payment');
-        const alertBox = document.getElementById('paymentAlert');
-        
-        if (paymentStatus === 'success') {
-            isPaid = true;
-            alertBox.classList.remove('hidden');
-            alertBox.classList.add('bg-emerald-950/80', 'text-emerald-300', 'border', 'border-emerald-700/50');
-            alertBox.innerText = '✨ تم الدفع بنجاح! زر تحميل الملف الأصلي عالي الدقة متاح الآن في الأسفل.';
-            
-            const downloadBtn = document.getElementById('downloadBtn');
-            downloadBtn.href = `${API_BASE}/download/`;
-            downloadBtn.style.display = 'block';
-            document.getElementById('stripeBtn').style.display = 'none';
-        } else if (paymentStatus === 'cancel') {
-            alertBox.classList.remove('hidden');
-            alertBox.classList.add('bg-rose-950/80', 'text-rose-300', 'border', 'border-rose-700/50');
-            alertBox.innerText = '❌ تم إلغاء عملية الدفع.';
-        }
-    };
-
     function toggleCustomDims() {
         const platform = document.getElementById('platform').value;
         document.getElementById('customDims').style.display = platform === 'custom' ? 'grid' : 'none';
+    }
+
+    function saveEmail() {
+        const email = document.getElementById('userEmail').value;
+        if(email && email.includes('@')) {
+            document.getElementById('emailMsg').classList.remove('hidden');
+            // هنا يمكنك لاحقاً ربطه بـ Backend لحفظ البريد في ملف أو قاعدة بيانات
+        } else {
+            alert('الرجاء إدخال بريد إلكتروني صحيح!');
+        }
     }
 
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
@@ -369,13 +323,10 @@ LUXURY_HTML_UI = """
         const status = document.getElementById('status');
         const previewContainer = document.getElementById('previewContainer');
         const previewImg = document.getElementById('imagePreview');
-        const stripeBtn = document.getElementById('stripeBtn');
         const downloadBtn = document.getElementById('downloadBtn');
 
         loader.style.display = 'block';
         status.innerText = '';
-        downloadBtn.style.display = 'none';
-        stripeBtn.style.display = 'none';
         previewContainer.style.display = 'none';
 
         try {
@@ -388,18 +339,13 @@ LUXURY_HTML_UI = """
             loader.style.display = 'none';
             if (response.ok) {
                 status.className = "mt-6 text-center text-sm font-semibold text-emerald-400";
-                status.innerText = `${data.message} | معاينة الأبعاد: ${data.preview_resolution[0]}×${data.preview_resolution[1]}`;
+                status.innerText = `${data.message} | الأبعاد الجديدة: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
                 
                 previewImg.src = `${API_BASE}/preview-image/?t=` + new Date().getTime();
                 previewContainer.style.display = 'block';
 
-                if (!isPaid) {
-                    stripeBtn.style.display = 'flex';
-                    stripeBtn.onclick = payWithStripe;
-                } else {
-                    downloadBtn.href = `${API_BASE}/download/`;
-                    downloadBtn.style.display = 'block';
-                }
+                downloadBtn.href = `${API_BASE}/download/`;
+                previewContainer.scrollIntoView({ behavior: 'smooth' });
             } else {
                 status.className = "mt-6 text-center text-sm font-semibold text-rose-400";
                 status.innerText = `حدث خطأ: ${data.detail}`;
@@ -410,34 +356,6 @@ LUXURY_HTML_UI = """
             status.innerText = 'تعذر الاتصال بالسيرفر. تأكد من عمل الشبكة.';
         }
     });
-
-    async function payWithStripe() {
-        const status = document.getElementById('status');
-        const selectedPlan = document.getElementById('pricingPlan').value;
-        status.className = "mt-6 text-center text-sm font-semibold text-blue-400";
-        status.innerText = 'جاري التحويل إلى بوابة الدفع الآمنة Stripe...';
-        
-        try {
-            const formData = new FormData();
-            formData.append('plan', selectedPlan);
-
-            const response = await fetch(`${API_BASE}/create-checkout-session/`, { 
-                method: 'POST',
-                body: formData
-            });
-            const data = await response.json();
-            
-            if (data.checkout_url) {
-                window.location.href = data.checkout_url;
-            } else {
-                status.className = "mt-6 text-center text-sm font-semibold text-rose-400";
-                status.innerText = 'تأكد من إعداد مفتاح Stripe API في إعدادات المنصة.';
-            }
-        } catch (err) {
-            status.className = "mt-6 text-center text-sm font-semibold text-rose-400";
-            status.innerText = 'خطأ في الاتصال ببوابة الدفع.';
-        }
-    }
 </script>
 
 </body>
@@ -447,36 +365,7 @@ LUXURY_HTML_UI = """
 @app.head("/", include_in_schema=False)
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
-    return LUXURY_HTML_UI
-
-@app.post("/create-checkout-session/")
-async def create_checkout_session(request: Request, plan: str = Form("single")):
-    try:
-        if not stripe.api_key or not stripe.api_key.startswith("sk_"):
-            raise HTTPException(status_code=500, detail="Stripe Secret Key is missing or invalid (Must start with sk_).")
-
-        selected_plan = PRICING_PLANS.get(plan, PRICING_PLANS["single"])
-        base_url = str(request.base_url).rstrip("/")
-        
-        checkout_session = stripe.checkout.Session.create(
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': f'POD Service - {selected_plan["name"]}',
-                    },
-                    'unit_amount': int(selected_plan["amount"]),
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            success_url=f'{base_url}/?payment=success',
-            cancel_url=f'{base_url}/?payment=cancel',
-        )
-        return {"checkout_url": checkout_session.url}
-    except Exception as e:
-        print(f"Stripe Error Detail: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Stripe Error: {str(e)}")
+    return COMMUNITY_HTML_UI
 
 @app.post("/process-image/")
 async def process_image(
@@ -484,7 +373,8 @@ async def process_image(
     platform: str = Form("redbubble"),
     dpi: int = Form(300),
     custom_width: int = Form(None),
-    custom_height: int = Form(None)
+    custom_height: int = Form(None),
+    remove_bg: bool = Form(True)
 ):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Invalid file type.")
@@ -498,6 +388,12 @@ async def process_image(
         
         del image_bytes
         gc.collect()
+
+        if remove_bg and REMBG_AVAILABLE:
+            try:
+                pil_img = remove(pil_img)
+            except Exception:
+                pass
             
         if custom_width and custom_height:
             target_width, target_height = custom_width, custom_height
@@ -506,7 +402,7 @@ async def process_image(
         else:
             target_width, target_height = (5000, 5000)
             
-        # 1. إنشاء وحفظ نسخة المعاينة أولاً
+        # 1. المعاينة
         preview_width = 600
         preview_height = int(target_height * (preview_width / target_width))
         preview_img = pil_img.resize((preview_width, preview_height), Image.Resampling.BILINEAR)
@@ -514,7 +410,7 @@ async def process_image(
         del preview_img
         gc.collect()
 
-        # 2. حفظ الملف الأصلي عالي الجودة
+        # 2. الصورة الأصلية عالية الجودة
         full_res_img = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
         del pil_img
         gc.collect()
@@ -525,7 +421,7 @@ async def process_image(
         
         return {
             "status": "success",
-            "message": "تمت معالجة الصورة بنجاح! شاهد المعاينة المجانية أدناه.",
+            "message": "تمت معالجة الصورة بنجاح وتجهيزها للطباعة!",
             "original_resolution": original_size,
             "optimized_resolution": [target_width, target_height],
             "preview_resolution": [preview_width, preview_height]
