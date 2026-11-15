@@ -401,11 +401,13 @@ async def process_image(
         del image_bytes
         gc.collect()
 
+        # محاولة إزالة الخلفية بأمان دون التسبب في انهيار السيرفر
         if remove_bg and REMBG_AVAILABLE:
             try:
                 pil_img = remove(pil_img)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Background removal skipped due to memory/CPU limit: {e}")
+                # يستمر الكود بشكل طبيعي دون توقف السيرفر إذا حدث خطأ في الذاكرة
             
         if custom_width and custom_height:
             target_width, target_height = custom_width, custom_height
@@ -439,7 +441,7 @@ async def process_image(
         
     except Exception as e:
         gc.collect()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"خطأ في المعالجة: {str(e)}")
 
 @app.get("/preview-image/")
 async def preview_image():
