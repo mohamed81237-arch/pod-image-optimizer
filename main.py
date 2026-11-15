@@ -396,8 +396,17 @@ async def process_image(
             
         original_size = pil_img.size
         
+        # تصغير الصورة مؤقتاً قبل إزالة الخلفية إذا كانت ضخمة جداً لتفادي انهيار الذاكرة (RAM Limit 512MB)
+        max_preview_dimension = 2000
+        if max(pil_img.size) > max_preview_dimension:
+            pil_img.thumbnail((max_preview_dimension, max_preview_dimension), Image.Resampling.LANCZOS)
+
+        # إزالة الخلفية بأمان إذا طلبها المستخدم
         if remove_bg and REMBG_AVAILABLE:
-            pil_img = remove(pil_img)
+            try:
+                pil_img = remove(pil_img)
+            except Exception as e:
+                print(f"Rembg warning: {str(e)}")
             
         if custom_width and custom_height:
             target_width, target_height = custom_width, custom_height
