@@ -5,6 +5,7 @@ from PIL import Image
 import io
 import os
 import gc
+from datetime import datetime
 
 try:
     from rembg import remove
@@ -27,7 +28,7 @@ PLATFORM_SPECS = {
     "merch": (4500, 5400)
 }
 
-# واجهة SaaS مع جمع البريد الإلكتروني وزر الدعم الاختياري (Buy Me a Coffee)
+# الواجهة الأمامية مع ربط حقيقي لحفظ البريد الإلكتروني في ملف نصي
 COMMUNITY_HTML_UI = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -54,7 +55,7 @@ COMMUNITY_HTML_UI = """
 <body class="bg-[#090d16] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] text-slate-100 min-h-screen py-12 px-4">
 
     <div class="max-w-4xl mx-auto">
-        <!-- ترويسة الموقع الفخمة -->
+        <!-- ترويسة الموقع -->
         <header class="text-center mb-12">
             <div class="inline-block px-4 py-1.5 mb-4 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold tracking-wide">
                 أداة مجتمعية مجانية للمصممين ⚡
@@ -67,11 +68,11 @@ COMMUNITY_HTML_UI = """
             </p>
         </header>
 
-        <!-- صندوق العمل الرئيسي (Glass Panel) -->
+        <!-- صندوق العمل الرئيسي -->
         <div class="glass-panel rounded-3xl p-6 md:p-10">
             <form id="uploadForm" class="space-y-8">
                 
-                <!-- منطقة رفع الملفات العائمة (Dropzone) -->
+                <!-- منطقة رفع الملفات -->
                 <div>
                     <label class="block text-sm font-semibold mb-3 text-slate-200">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
                     <div class="border-2 border-dashed border-slate-700 hover:border-emerald-500/80 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 bg-slate-900/50 hover:bg-slate-900/80 relative group">
@@ -88,7 +89,7 @@ COMMUNITY_HTML_UI = """
                     </div>
                 </div>
 
-                <!-- 🌟 معاينة فورية (Live Local Preview) مع أزرار فحص الخلفيات -->
+                <!-- معاينة فورية -->
                 <div id="instantPreviewContainer" class="hidden p-4 rounded-2xl bg-slate-950/60 border border-slate-800 transition-all">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
@@ -100,13 +101,12 @@ COMMUNITY_HTML_UI = """
                         </span>
                     </div>
                     
-                    <!-- أزرار تبديل الخلفية (QA Background Switcher) -->
                     <div class="flex items-center justify-center gap-2 mb-3">
                         <span class="text-xs text-slate-400 ml-1">فحص على لون المنتج:</span>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-600 checkerboard focus:ring-2 ring-emerald-500" title="خلفية شفافة"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-black focus:ring-2 ring-emerald-500" title="تيشرت أسود"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-[#0f172a] focus:ring-2 ring-emerald-500" title="تيشرت كحلي"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-white focus:ring-2 ring-emerald-500" title="تيشرت أبيض"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-600 checkerboard" title="شفاف"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-black" title="أسود"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-[#0f172a]" title="كحلي"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-white" title="أبيض"></button>
                     </div>
 
                     <div id="instantPreviewBox" class="relative w-full h-56 rounded-xl overflow-hidden flex items-center justify-center checkerboard transition-colors duration-300">
@@ -114,32 +114,31 @@ COMMUNITY_HTML_UI = """
                     </div>
                 </div>
 
-                <!-- إعدادات المنصة والدقة -->
+                <!-- إعدادات المنصة -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="platform" class="block text-sm font-semibold mb-2 text-slate-300">المنصة المستهدفة:</label>
-                        <select id="platform" onchange="toggleCustomDims()" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition">
+                        <select id="platform" onchange="toggleCustomDims()" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 outline-none transition">
                             <option value="redbubble">Redbubble (5000 × 5000 px)</option>
                             <option value="teepublic">Teepublic (5000 × 5500 px)</option>
                             <option value="merch">Merch by Amazon (4500 × 5400 px)</option>
                             <option value="custom">مقاس مخصص</option>
                         </select>
                         <div class="custom-dims hidden grid-cols-2 gap-3 mt-3" id="customDims">
-                            <input type="number" id="customWidth" placeholder="العرض (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none focus:border-emerald-500">
-                            <input type="number" id="customHeight" placeholder="الارتفاع (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none focus:border-emerald-500">
+                            <input type="number" id="customWidth" placeholder="العرض (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none">
+                            <input type="number" id="customHeight" placeholder="الارتفاع (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none">
                         </div>
                     </div>
 
                     <div>
                         <label for="dpiSelect" class="block text-sm font-semibold mb-2 text-slate-300">دقة الطباعة المطلوبة:</label>
-                        <select id="dpiSelect" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition">
+                        <select id="dpiSelect" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 outline-none transition">
                             <option value="300" selected>300 DPI (قياسي واحترافي للطباعة)</option>
                             <option value="150">150 DPI (متوسط)</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- خيار إزالة الخلفية الفاخر -->
                 <div class="flex items-center gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700/60">
                     <input type="checkbox" id="removeBg" class="w-5 h-5 accent-emerald-600 rounded cursor-pointer" checked>
                     <label for="removeBg" class="text-sm font-medium text-slate-200 cursor-pointer select-none">
@@ -147,13 +146,11 @@ COMMUNITY_HTML_UI = """
                     </label>
                 </div>
 
-                <!-- زر الإرسال المجاني -->
                 <button type="submit" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition duration-300 text-lg">
                     معالجة وتحميل التصميم مجانًا ⚡
                 </button>
             </form>
 
-            <!-- مؤشر التحميل -->
             <div class="loader hidden text-center my-8">
                 <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent"></div>
                 <p class="text-sm text-emerald-400 mt-3 font-medium">جاري معالجة الصورة وضبطها لجودة 300 DPI...</p>
@@ -161,7 +158,7 @@ COMMUNITY_HTML_UI = """
 
             <div id="status" class="mt-6 text-center text-sm font-medium"></div>
 
-            <!-- معاينة النتيجة وجمع البريد الإلكتروني -->
+            <!-- معاينة النتيجة وجمع الإيميل -->
             <div class="text-center mt-6 p-5 bg-slate-900/80 rounded-2xl border border-slate-700/60 hidden shadow-inner" id="previewContainer">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-xs text-emerald-400 font-bold bg-emerald-500/10 py-1.5 px-3 rounded-full border border-emerald-500/20">
@@ -172,8 +169,8 @@ COMMUNITY_HTML_UI = """
                         <span class="text-xs text-slate-400 ml-1">فحص النتيجة:</span>
                         <button type="button" onclick="changePreviewBg('processedPreviewBox', 'checker')" class="w-5 h-5 rounded-full border border-slate-600 checkerboard" title="شفاف"></button>
                         <button type="button" onclick="changePreviewBg('processedPreviewBox', 'black')" class="w-5 h-5 rounded-full border border-slate-600 bg-black" title="أسود"></button>
-                        <button type="button" onclick="changePreviewBox('processedPreviewBox', 'navy')" class="w-5 h-5 rounded-full border border-slate-600 bg-[#0f172a]" title="كحلي"></button>
-                        <button type="button" onclick="changePreviewBox('processedPreviewBox', 'white')" class="w-5 h-5 rounded-full border border-slate-600 bg-white" title="أبيض"></button>
+                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'navy')" class="w-5 h-5 rounded-full border border-slate-600 bg-[#0f172a]" title="كحلي"></button>
+                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'white')" class="w-5 h-5 rounded-full border border-slate-600 bg-white" title="أبيض"></button>
                     </div>
                 </div>
 
@@ -181,7 +178,7 @@ COMMUNITY_HTML_UI = """
                     <img id="imagePreview" src="" alt="معاينة الصورة" class="max-h-72 mx-auto rounded-lg shadow-2xl object-contain">
                 </div>
 
-                <!-- 🌟 صندوق جمع البريد الإلكتروني الاختياري (Newsletter / Lead Magnet) -->
+                <!-- نموذج جمع البريد الإلكتروني (يرسل لملف emails.txt) -->
                 <div class="mt-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 text-right">
                     <label class="block text-xs font-semibold text-slate-300 mb-1">احصل على دليل استراتيجيات زيادة مبيعات Redbubble مجاناً:</label>
                     <div class="flex gap-2">
@@ -191,14 +188,12 @@ COMMUNITY_HTML_UI = """
                     <p id="emailMsg" class="text-xs text-emerald-400 mt-2 hidden">✨ شكراً لك! تم تسجيل بريدك بنجاح.</p>
                 </div>
 
-                <!-- زر التحميل المباشر المجاني -->
                 <div class="mt-6">
                     <a href="#" id="downloadBtn" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition duration-300 text-center block text-lg">
                         تحميل الصورة الأصلية للطباعة بجودتها الكاملة 300 DPI مجاناً 📥
                     </a>
                 </div>
 
-                <!-- 🌟 زر التبرع الاختياري (Buy Me a Coffee / Support) -->
                 <div class="mt-6 pt-4 border-t border-slate-800 text-center">
                     <p class="text-xs text-slate-400 mb-2">هل أعجبتك الأداة وساعدت عملك؟ يمكنك دعم استمرار السيرفر:</p>
                     <a href="https://buymeacoffee.com/your-username" target="_blank" class="inline-flex items-center gap-2 bg-[#ffdd00] hover:bg-[#f2d100] text-slate-950 font-bold px-6 py-2.5 rounded-xl text-xs transition shadow-md">
@@ -207,34 +202,6 @@ COMMUNITY_HTML_UI = """
                 </div>
             </div>
         </div>
-
-        <!-- قسم دليل البائعين الإرشادي -->
-        <section class="mt-16">
-            <div class="text-center mb-10">
-                <h2 class="text-2xl font-bold text-white mb-3">دليل تجهيز التصاميم للطباعة حسب الطلب (POD)</h2>
-                <p class="text-slate-400 text-sm max-w-xl mx-auto">قواعد فحص الجودة الأساسية لضمان قبول تصاميمك وظهورها بأعلى دقة على التيشرتات والأكواب.</p>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-6">
-                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">👕</div>
-                    <h3 class="text-base font-bold text-white mb-2">الفحص على الألوان الداكنة</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">اختبر تصميمك دائماً على خلفية سوداء أو كحلية لكشف أي حواف بيضاء غير مرغوب فيها قبل رفعها للمتجر.</p>
-                </div>
-
-                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center text-xl mb-4">📐</div>
-                    <h3 class="text-base font-bold text-white mb-2">معيار 300 DPI</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">تأكد من تصدير ملفك بالأبعاد والمقاسات الصحيحة للمنصة المستهدفة لتفادي بهتان الطباعة.</p>
-                </div>
-
-                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">✨</div>
-                    <h3 class="text-base font-bold text-white mb-2">نسخ مخصصة لكل منتج</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">التصاميم ذات النصوص الفاتحة تتطلب عناية خاصة عند طباعتها على منتجات بيضاء أو سوداء.</p>
-                </div>
-            </div>
-        </section>
     </div>
 
 <script>
@@ -244,7 +211,6 @@ COMMUNITY_HTML_UI = """
         if (input.files && input.files[0]) {
             const file = input.files[0];
             const reader = new FileReader();
-            
             reader.onload = function(e) {
                 document.getElementById('instantPreviewImg').src = e.target.result;
                 document.getElementById('instantPreviewContainer').classList.remove('hidden');
@@ -256,7 +222,6 @@ COMMUNITY_HTML_UI = """
                 tempImg.src = e.target.result;
             }
             reader.readAsDataURL(file);
-
             document.getElementById('fileLabelText').innerHTML = `
                 <div class="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
@@ -270,16 +235,10 @@ COMMUNITY_HTML_UI = """
     function changePreviewBg(boxId, bgType) {
         const box = document.getElementById(boxId);
         box.classList.remove('bg-black', 'bg-white', 'bg-[#0f172a]', 'checkerboard');
-
-        if (bgType === 'checker') {
-            box.classList.add('checkerboard');
-        } else if (bgType === 'black') {
-            box.classList.add('bg-black');
-        } else if (bgType === 'navy') {
-            box.classList.add('bg-[#0f172a]');
-        } else if (bgType === 'white') {
-            box.classList.add('bg-white');
-        }
+        if (bgType === 'checker') box.classList.add('checkerboard');
+        else if (bgType === 'black') box.classList.add('bg-black');
+        else if (bgType === 'navy') box.classList.add('bg-[#0f172a]');
+        else if (bgType === 'white') box.classList.add('bg-white');
     }
 
     function toggleCustomDims() {
@@ -287,11 +246,33 @@ COMMUNITY_HTML_UI = """
         document.getElementById('customDims').style.display = platform === 'custom' ? 'grid' : 'none';
     }
 
-    function saveEmail() {
-        const email = document.getElementById('userEmail').value;
-        if(email && email.includes('@')) {
-            document.getElementById('emailMsg').classList.remove('hidden');
-            // هنا يمكنك لاحقاً ربطه بـ Backend لحفظ البريد في ملف أو قاعدة بيانات
+    // دالة حفظ البريد الإلكتروني الحقيقية (ترسل للباك إند لحفظها في emails.txt)
+    async function saveEmail() {
+        const emailInput = document.getElementById('userEmail');
+        const email = emailInput.value;
+        const msgElement = document.getElementById('emailMsg');
+
+        if (email && email.includes('@')) {
+            try {
+                const response = await fetch(`${API_BASE}/collect-email/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `email=${encodeURIComponent(email)}`
+                });
+                const data = await response.json();
+                
+                msgElement.classList.remove('hidden');
+                if (response.ok) {
+                    msgElement.className = "text-xs text-emerald-400 mt-2 font-medium";
+                    msgElement.innerText = "✨ " + data.message;
+                    emailInput.value = "";
+                } else {
+                    msgElement.className = "text-xs text-amber-400 mt-2 font-medium";
+                    msgElement.innerText = "⚠️ " + (data.detail || data.message);
+                }
+            } catch (err) {
+                alert('تعذر الاتصال بالسيرفر.');
+            }
         } else {
             alert('الرجاء إدخال بريد إلكتروني صحيح!');
         }
@@ -299,12 +280,8 @@ COMMUNITY_HTML_UI = """
 
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
         const fileInput = document.getElementById('imageFile');
-        if (!fileInput.files.length) {
-            alert('الرجاء اختيار صورة أولاً!');
-            return;
-        }
+        if (!fileInput.files.length) { alert('الرجاء اختيار صورة أولاً!'); return; }
 
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
@@ -330,20 +307,14 @@ COMMUNITY_HTML_UI = """
         previewContainer.style.display = 'none';
 
         try {
-            const response = await fetch(`${API_BASE}/process-image/`, {
-                method: 'POST',
-                body: formData
-            });
+            const response = await fetch(`${API_BASE}/process-image/`, { method: 'POST', body: formData });
             const data = await response.json();
-
             loader.style.display = 'none';
             if (response.ok) {
                 status.className = "mt-6 text-center text-sm font-semibold text-emerald-400";
                 status.innerText = `${data.message} | الأبعاد الجديدة: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
-                
                 previewImg.src = `${API_BASE}/preview-image/?t=` + new Date().getTime();
                 previewContainer.style.display = 'block';
-
                 downloadBtn.href = `${API_BASE}/download/`;
                 previewContainer.scrollIntoView({ behavior: 'smooth' });
             } else {
@@ -353,11 +324,10 @@ COMMUNITY_HTML_UI = """
         } catch (err) {
             loader.style.display = 'none';
             status.className = "mt-6 text-center text-sm font-semibold text-rose-400";
-            status.innerText = 'تعذر الاتصال بالسيرفر. تأكد من عمل الشبكة.';
+            status.innerText = 'تعذر الاتصال بالسيرفر.';
         }
     });
 </script>
-
 </body>
 </html>
 """
@@ -366,6 +336,48 @@ COMMUNITY_HTML_UI = """
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
     return COMMUNITY_HTML_UI
+
+# 🌟 مسار استقبال وحفظ الإيميل في ملف نصي (emails.txt)
+@app.post("/collect-email/")
+async def collect_email(email: str = Form(...)):
+    if not email or "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="البريد الإلكتروني غير صحيح.")
+    
+    clean_email = email.strip().lower()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    file_path = "emails.txt"
+    
+    # التحقق مما إذا كان البريد مسجلاً مسبقاً لمنع التكرار
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            if clean_email in f.read():
+                return {"status": "exists", "message": "هذا البريد مسجل مسبقاً لدينا بالفعل!"}
+    
+    # حفظ البريد الجديد في الملف
+    try:
+        with open(file_path, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {clean_email}\n")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="فشل حفظ البريد الإلكتروني.")
+        
+    return {"status": "success", "message": "تم حفظ بريدك بنجاح"}
+
+# 🌟 مسار سري لتحميل ملف الإيميلات النصي (emails.txt)
+@app.get("/admin/download-emails-txt/")
+async def download_emails_txt(secret_key: str):
+    ADMIN_SECRET = "MY_SECRET_ADMIN_KEY" # يمكنك تغييرها لكلمة سر خاصة بك
+    
+    if secret_key != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="غير مسموح لك بالوصول.")
+    
+    file_path = "emails.txt"
+    if os.path.exists(file_path):
+        return FileResponse(
+            file_path,
+            media_type="text/plain",
+            filename="subscribers_emails.txt"
+        )
+    raise HTTPException(status_code=404, detail="لا توجد إيميلات مسجلة حتى الآن.")
 
 @app.post("/process-image/")
 async def process_image(
@@ -402,7 +414,6 @@ async def process_image(
         else:
             target_width, target_height = (5000, 5000)
             
-        # 1. المعاينة
         preview_width = 600
         preview_height = int(target_height * (preview_width / target_width))
         preview_img = pil_img.resize((preview_width, preview_height), Image.Resampling.BILINEAR)
@@ -410,7 +421,6 @@ async def process_image(
         del preview_img
         gc.collect()
 
-        # 2. الصورة الأصلية عالية الجودة
         full_res_img = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
         del pil_img
         gc.collect()
