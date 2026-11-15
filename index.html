@@ -51,6 +51,81 @@
             <form id="uploadForm" class="space-y-6">
                 
                 <!-- اختيار الملف -->
+                <!-- 1. قسم المعاينة الفورية قبل المعالجة (يوضع داخل نموذج الرفع أسفل مربع اختيار الملف) -->
+<div id="instantPreviewContainer" class="hidden mt-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/60 backdrop-blur-md transition-all">
+    <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            معاينة الملف الأصلي المرفوع
+        </span>
+        <span id="originalDimensionsBadge" class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
+            جاري قراءة الأبعاد...
+        </span>
+    </div>
+    
+    <!-- أزرار تبديل خلفية المعاينة الفورية -->
+    <div class="flex items-center justify-center gap-2 mb-3">
+        <span class="text-xs text-slate-400 ml-1">فحص الخلفية:</span>
+        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')] focus:ring-2 ring-indigo-500" title="خلفية شفافة"></button>
+        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-black focus:ring-2 ring-indigo-500" title="تيشرت أسود (فحص الحواف البيضاء)"></button>
+        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-[#0f172a] focus:ring-2 ring-indigo-500" title="تيشرت كحلي"></button>
+        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-white focus:ring-2 ring-indigo-500" title="تيشرت أبيض (فحص النصوص الفاتحة)"></button>
+    </div>
+
+    <div id="instantPreviewBox" class="relative w-full h-64 rounded-xl overflow-hidden flex items-center justify-center border border-slate-700/50 transition-colors duration-300 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')]">
+        <img id="instantPreviewImg" src="" alt="Instant Preview" class="max-h-56 max-w-full object-contain drop-shadow-md transition-transform duration-300 hover:scale-105" />
+    </div>
+</div>
+
+<!-- 2. قسم المعاينة النهائية بعد المعالجة مع أزرار فحص ألوان المنتجات -->
+<div id="resultSection" class="hidden mt-8 p-6 rounded-3xl bg-slate-900/90 border border-indigo-500/30 shadow-2xl backdrop-blur-xl">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
+        <span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            ⚠️ معاينة مجانية بجودة منخفضة (غير صالحة للطباعة المباشرة)
+        </span>
+        
+        <!-- شريط أزرار فحص الجودة (QA Color Check) -->
+        <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+            <span class="text-xs text-slate-300 ml-1">اختبر على لون المنتج:</span>
+            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'checker')" class="w-6 h-6 rounded-full border border-slate-400 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')] hover:scale-110 transition" title="خلفية شفافة"></button>
+            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'black')" class="w-6 h-6 rounded-full border border-slate-400 bg-black hover:scale-110 transition" title="أسود داكن"></button>
+            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'navy')" class="w-6 h-6 rounded-full border border-slate-400 bg-[#1e293b] hover:scale-110 transition" title="كحلي"></button>
+            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'white')" class="w-6 h-6 rounded-full border border-slate-400 bg-white hover:scale-110 transition" title="أبيض ناصع"></button>
+        </div>
+    </div>
+
+    <div id="processedPreviewBox" class="w-full h-80 rounded-2xl flex items-center justify-center p-4 border border-slate-700/60 transition-colors duration-300 bg-[#0f172a]">
+        <img id="previewImage" src="" alt="Processed Preview" class="max-h-72 max-w-full object-contain" />
+    </div>
+</div>
+
+<!-- 3. قسم دليل البائعين الإرشادي (مستوحى من مرجعية BGRemover) -->
+<section class="mt-16 max-w-5xl mx-auto px-4 pb-16">
+    <div class="text-center mb-10">
+        <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">دليل تجهيز التصاميم للطباعة حسب الطلب (POD)</h2>
+        <p class="text-slate-400 text-sm max-w-2xl mx-auto">قواعد فحص الجودة الأساسية لضمان قبول تصاميمك وظهورها بأعلى دقة على التيشرتات والأكواب والملصقات.</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl mb-4">👕</div>
+            <h3 class="text-lg font-bold text-white mb-2">الفحص على الألوان الداكنة</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">لا تعتمد على الخلفية الشفافة فقط؛ اختبر تصميمك دائماً على خلفية سوداء أو كحلية لكشف أي هالات بيضاء أو بقايا غير مرغوب فيها حول الحواف قبل الطباعة.</p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">📐</div>
+            <h3 class="text-lg font-bold text-white mb-2">معيار 300 DPI والأبعاد</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">دقة 300 DPI وحدها لا تكفي إذا كانت أبعاد البكسل صغيرة. تأكد من تصدير ملفك بأبعاد المنصة المطلوبة (مثل 5000×5000 لـ Redbubble) لتفادي بهتان الطباعة.</p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-4">✨</div>
+            <h3 class="text-lg font-bold text-white mb-2">نسخ مخصصة لكل لون</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">التصاميم التي تحتوي على نصوص بيضاء أو تفاصيل فاتحة تختفي على المنتجات البيضاء. احتفظ بملف رئيسي شفاف وأنشئ نسخة بحدود داكنة للمنتجات الفاتحة.</p>
+        </div>
+    </div>
+</section>
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-2">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
                     <input type="file" id="fileInput" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer bg-slate-950/50 rounded-2xl border border-slate-700/60 p-2">
