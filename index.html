@@ -348,6 +348,48 @@
                 alert('تعذر الاتصال ببوابة الدفع.');
             }
         });
-    </script>
+    </script> 
+    const fileInput = document.getElementById('fileInput'); // تأكد من تطابق الـ ID مع حقل الرفع لديك
+const instantPreviewContainer = document.getElementById('instantPreviewContainer');
+const instantPreviewImg = document.getElementById('instantPreviewImg');
+const originalDimensionsBadge = document.getElementById('originalDimensionsBadge');
+
+// 1. معاينة التصميم مباشرة فور اختياره من الجهاز
+fileInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        instantPreviewImg.src = event.target.result;
+        instantPreviewContainer.classList.remove('hidden');
+
+        // قراءة أبعاد الصورة الأصلية وعرضها للمستخدم
+        const tempImg = new Image();
+        tempImg.onload = function() {
+            originalDimensionsBadge.textContent = `الأبعاد الأصلية: ${this.width} × ${this.height} px`;
+        };
+        tempImg.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+});
+
+// 2. دالة تبديل لون خلفية المعاينة (فحص جودة الـ POD)
+function changePreviewBg(boxId, bgType) {
+    const box = document.getElementById(boxId);
+    // إزالة الخلفيات السابقة
+    box.classList.remove('bg-black', 'bg-white', 'bg-[#0f172a]', 'bg-[#1e293b]');
+    box.style.backgroundImage = 'none';
+
+    if (bgType === 'checker') {
+        box.style.backgroundImage = "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')";
+    } else if (bgType === 'black') {
+        box.classList.add('bg-black');
+    } else if (bgType === 'navy') {
+        box.classList.add('bg-[#0f172a]');
+    } else if (bgType === 'white') {
+        box.classList.add('bg-white');
+    }
+}
 </body>
 </html>
