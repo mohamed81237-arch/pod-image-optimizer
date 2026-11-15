@@ -352,6 +352,10 @@ async def serve_frontend():
 @app.post("/create-checkout-session/")
 async def create_checkout_session(request: Request, plan: str = Form("single")):
     try:
+        # التحقق من أن المفتاح يبدأ بـ sk
+        if not stripe.api_key or not stripe.api_key.startswith("sk_"):
+            raise HTTPException(status_code=500, detail="Stripe Secret Key is missing or invalid (Must start with sk_).")
+
         selected_plan = PRICING_PLANS.get(plan, PRICING_PLANS["single"])
         base_url = str(request.base_url).rstrip("/")
         
@@ -373,8 +377,8 @@ async def create_checkout_session(request: Request, plan: str = Form("single")):
         )
         return {"checkout_url": checkout_session.url}
     except Exception as e:
+        print(f"Stripe Error Detail: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Stripe Error: {str(e)}")
-
 @app.post("/process-image/")
 async def process_image(
     file: UploadFile = File(...),
