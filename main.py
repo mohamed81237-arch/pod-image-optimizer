@@ -1,17 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image
+from PIL import Image, ImageFilter
 import io
 import os
 import gc
 from datetime import datetime
-
-try:
-    from rembg import remove
-    REMBG_AVAILABLE = True
-except ImportError:
-    REMBG_AVAILABLE = False
 
 app = FastAPI()
 
@@ -28,14 +22,14 @@ PLATFORM_SPECS = {
     "merch": (4500, 5400)
 }
 
-# الواجهة الأمامية مع ربط حقيقي لحفظ البريد الإلكتروني في ملف نصي
+# الواجهة الأمامية مع دعم اللغتين (عربي / إنجليزي) ومفتاح التبديل
 COMMUNITY_HTML_UI = """
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة تجهيز وتحسين تصاميم الطباعة عند الطلب (POD Master Studio)</title>
+    <title id="pageTitle">POD Master Studio - أداة تجهيز وتحسين تصاميم الطباعة</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -55,33 +49,37 @@ COMMUNITY_HTML_UI = """
 <body class="bg-[#090d16] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] text-slate-100 min-h-screen py-12 px-4">
 
     <div class="max-w-4xl mx-auto">
-        <!-- ترويسة الموقع -->
-        <header class="text-center mb-12">
-            <div class="inline-block px-4 py-1.5 mb-4 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold tracking-wide">
+        <!-- ترويسة مع زر تغيير اللغة -->
+        <div class="flex justify-between items-center mb-8">
+            <div id="badgeText" class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold tracking-wide">
                 أداة مجتمعية مجانية للمصممين ⚡
             </div>
-            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
+            <button onclick="toggleLanguage()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold px-4 py-2 rounded-xl text-xs border border-slate-700 transition">
+                🌐 English / العربية
+            </button>
+        </div>
+
+        <header class="text-center mb-12">
+            <h1 id="mainTitle" class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
                 تجهيز تصاميم الطباعة (POD)
             </h1>
-            <p class="text-slate-400 text-base md:text-lg max-w-2xl mx-auto">
-                أزل الخلفية بدقة فائقة واضبط الأبعاد لـ Redbubble و Amazon بضغطة زر ومجاناً تماماً.
+            <p id="mainDesc" class="text-slate-400 text-base md:text-lg max-w-2xl mx-auto">
+                إزالة الخلفية الفاتحة مع تنعيم الحواف بدقة وضبط الأبعاد لمنصات Redbubble و Amazon بضغطة زر.
             </p>
         </header>
 
-        <!-- صندوق العمل الرئيسي -->
         <div class="glass-panel rounded-3xl p-6 md:p-10">
             <form id="uploadForm" class="space-y-8">
                 
-                <!-- منطقة رفع الملفات -->
                 <div>
-                    <label class="block text-sm font-semibold mb-3 text-slate-200">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
+                    <label id="labelUpload" class="block text-sm font-semibold mb-3 text-slate-200">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
                     <div class="border-2 border-dashed border-slate-700 hover:border-emerald-500/80 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 bg-slate-900/50 hover:bg-slate-900/80 relative group">
                         <input type="file" id="imageFile" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" required onchange="handleFileSelect(this)">
                         <div id="fileLabelText" class="space-y-2">
                             <div class="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition duration-300">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                             </div>
-                            <div class="text-slate-300 font-medium">
+                            <div class="text-slate-300 font-medium upload-text-inner">
                                 <span class="text-emerald-400 font-semibold underline underline-offset-4">انقر لرفع الصورة</span> أو اسحبها وأفلتها هنا
                             </div>
                             <p class="text-xs text-slate-500">PNG, JPG, WEBP بجودة عالية</p>
@@ -89,12 +87,11 @@ COMMUNITY_HTML_UI = """
                     </div>
                 </div>
 
-                <!-- معاينة فورية -->
                 <div id="instantPreviewContainer" class="hidden p-4 rounded-2xl bg-slate-950/60 border border-slate-800 transition-all">
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                        <span id="previewTitle" class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            معاينة الملف الأصلي قبل المعالجة
+                            معاينة الملف الأصلي
                         </span>
                         <span id="originalDimensionsBadge" class="text-xs bg-slate-900 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-800">
                             جاري قراءة الأبعاد...
@@ -102,7 +99,7 @@ COMMUNITY_HTML_UI = """
                     </div>
                     
                     <div class="flex items-center justify-center gap-2 mb-3">
-                        <span class="text-xs text-slate-400 ml-1">فحص على لون المنتج:</span>
+                        <span id="bgColorLabel" class="text-xs text-slate-400 ml-1">فحص على لون المنتج:</span>
                         <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-600 checkerboard" title="شفاف"></button>
                         <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-black" title="أسود"></button>
                         <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-[#0f172a]" title="كحلي"></button>
@@ -114,24 +111,23 @@ COMMUNITY_HTML_UI = """
                     </div>
                 </div>
 
-                <!-- إعدادات المنصة -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="platform" class="block text-sm font-semibold mb-2 text-slate-300">المنصة المستهدفة:</label>
+                        <label id="labelPlatform" class="block text-sm font-semibold mb-2 text-slate-300">المنصة المستهدفة:</label>
                         <select id="platform" onchange="toggleCustomDims()" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 outline-none transition">
                             <option value="redbubble">Redbubble (5000 × 5000 px)</option>
                             <option value="teepublic">Teepublic (5000 × 5500 px)</option>
                             <option value="merch">Merch by Amazon (4500 × 5400 px)</option>
-                            <option value="custom">مقاس مخصص</option>
+                            <option id="optCustom" value="custom">مقاس مخصص (Custom)</option>
                         </select>
                         <div class="custom-dims hidden grid-cols-2 gap-3 mt-3" id="customDims">
-                            <input type="number" id="customWidth" placeholder="العرض (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none">
-                            <input type="number" id="customHeight" placeholder="الارتفاع (px)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none">
+                            <input type="number" id="customWidth" placeholder="العرض (Width)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none">
+                            <input type="number" id="customHeight" placeholder="الارتفاع (Height)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 outline-none">
                         </div>
                     </div>
 
                     <div>
-                        <label for="dpiSelect" class="block text-sm font-semibold mb-2 text-slate-300">دقة الطباعة المطلوبة:</label>
+                        <label id="labelDpi" class="block text-sm font-semibold mb-2 text-slate-300">دقة الطباعة:</label>
                         <select id="dpiSelect" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 text-slate-200 outline-none transition">
                             <option value="300" selected>300 DPI (قياسي واحترافي للطباعة)</option>
                             <option value="150">150 DPI (متوسط)</option>
@@ -141,32 +137,31 @@ COMMUNITY_HTML_UI = """
 
                 <div class="flex items-center gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700/60">
                     <input type="checkbox" id="removeBg" class="w-5 h-5 accent-emerald-600 rounded cursor-pointer" checked>
-                    <label for="removeBg" class="text-sm font-medium text-slate-200 cursor-pointer select-none">
-                        إزالة الخلفية وجعلها شفافة بالذكاء الاصطناعي (AI Background Removal) ✨
+                    <label id="labelRemoveBg" class="text-sm font-medium text-slate-200 cursor-pointer select-none">
+                        إزالة الخلفية الفاتحة وتنعيم الحواف بذكاء (Smart Background Removal & Edge Smoothing) ✨
                     </label>
                 </div>
 
-                <button type="submit" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition duration-300 text-lg">
+                <button id="submitBtn" type="submit" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition duration-300 text-lg">
                     معالجة وتحميل التصميم مجانًا ⚡
                 </button>
             </form>
 
             <div class="loader hidden text-center my-8">
                 <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent"></div>
-                <p class="text-sm text-emerald-400 mt-3 font-medium">جاري معالجة الصورة وضبطها لجودة 300 DPI...</p>
+                <p id="loaderText" class="text-sm text-emerald-400 mt-3 font-medium">جاري معالجة الصورة وتنعيم الحواف بجودة 300 DPI...</p>
             </div>
 
             <div id="status" class="mt-6 text-center text-sm font-medium"></div>
 
-            <!-- معاينة النتيجة وجمع الإيميل -->
             <div class="text-center mt-6 p-5 bg-slate-900/80 rounded-2xl border border-slate-700/60 hidden shadow-inner" id="previewContainer">
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs text-emerald-400 font-bold bg-emerald-500/10 py-1.5 px-3 rounded-full border border-emerald-500/20">
+                    <span id="resultBadge" class="text-xs text-emerald-400 font-bold bg-emerald-500/10 py-1.5 px-3 rounded-full border border-emerald-500/20">
                         ✨ النتيجة جاهزة للطباعة بجودة 300 DPI
                     </span>
                     
                     <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800">
-                        <span class="text-xs text-slate-400 ml-1">فحص النتيجة:</span>
+                        <span id="checkResultLabel" class="text-xs text-slate-400 ml-1">فحص النتيجة:</span>
                         <button type="button" onclick="changePreviewBg('processedPreviewBox', 'checker')" class="w-5 h-5 rounded-full border border-slate-600 checkerboard" title="شفاف"></button>
                         <button type="button" onclick="changePreviewBg('processedPreviewBox', 'black')" class="w-5 h-5 rounded-full border border-slate-600 bg-black" title="أسود"></button>
                         <button type="button" onclick="changePreviewBg('processedPreviewBox', 'navy')" class="w-5 h-5 rounded-full border border-slate-600 bg-[#0f172a]" title="كحلي"></button>
@@ -178,12 +173,11 @@ COMMUNITY_HTML_UI = """
                     <img id="imagePreview" src="" alt="معاينة الصورة" class="max-h-72 mx-auto rounded-lg shadow-2xl object-contain">
                 </div>
 
-                <!-- نموذج جمع البريد الإلكتروني (يرسل لملف emails.txt) -->
-                <div class="mt-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 text-right">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">احصل على دليل استراتيجيات زيادة مبيعات Redbubble مجاناً:</label>
+                <div class="mt-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 text-right" id="emailBoxContainer">
+                    <label id="emailLabel" class="block text-xs font-semibold text-slate-300 mb-1">احصل على دليل استراتيجيات زيادة مبيعات Redbubble مجاناً:</label>
                     <div class="flex gap-2">
-                        <input type="email" id="userEmail" placeholder="أدخل بريدك الإلكتروني (اختياري)" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-emerald-500">
-                        <button type="button" onclick="saveEmail()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold px-4 py-2.5 rounded-xl text-sm transition">حفظ</button>
+                        <input type="email" id="userEmail" placeholder="أدخل بريدك الإلكتروني" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-emerald-500">
+                        <button id="emailSaveBtn" type="button" onclick="saveEmail()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 font-semibold px-4 py-2.5 rounded-xl text-sm transition">حفظ</button>
                     </div>
                     <p id="emailMsg" class="text-xs text-emerald-400 mt-2 hidden">✨ شكراً لك! تم تسجيل بريدك بنجاح.</p>
                 </div>
@@ -193,19 +187,94 @@ COMMUNITY_HTML_UI = """
                         تحميل الصورة الأصلية للطباعة بجودتها الكاملة 300 DPI مجاناً 📥
                     </a>
                 </div>
-
-                <div class="mt-6 pt-4 border-t border-slate-800 text-center">
-                    <p class="text-xs text-slate-400 mb-2">هل أعجبتك الأداة وساعدت عملك؟ يمكنك دعم استمرار السيرفر:</p>
-                    <a href="https://buymeacoffee.com/your-username" target="_blank" class="inline-flex items-center gap-2 bg-[#ffdd00] hover:bg-[#f2d100] text-slate-950 font-bold px-6 py-2.5 rounded-xl text-xs transition shadow-md">
-                        <span>☕ ادعمني بقهوة (Buy Me a Coffee)</span>
-                    </a>
-                </div>
             </div>
         </div>
     </div>
 
 <script>
     const API_BASE = window.location.origin;
+    let currentLang = 'ar';
+
+    const translations = {
+        ar: {
+            htmlLang: "ar", dir: "rtl",
+            badge: "أداة مجتمعية مجانية للمصممين ⚡",
+            title: "تجهيز تصاميم الطباعة (POD)",
+            desc: "إزالة الخلفية الفاتحة مع تنعيم الحواف بدقة وضبط الأبعاد لمنصات Redbubble و Amazon بضغطة زر.",
+            uploadLabel: "اختر أو اسحب ملف التصميم (صورة عالية الدقة):",
+            uploadText: '<span class="text-emerald-400 font-semibold underline underline-offset-4">انقر لرفع الصورة</span> أو اسحبها وأفلتها هنا',
+            subText: "PNG, JPG, WEBP بجودة عالية",
+            previewTitle: "معاينة الملف الأصلي",
+            bgColorLabel: "فحص على لون المنتج:",
+            labelPlatform: "المنصة المستهدفة:",
+            optCustom: "مقاس مخصص (Custom)",
+            labelDpi: "دقة الطباعة:",
+            labelRemoveBg: "إزالة الخلفية الفاتحة وتنعيم الحواف بذكاء (Smart Background Removal & Edge Smoothing) ✨",
+            submitBtn: "معالجة وتحميل التصميم مجانًا ⚡",
+            loaderText: "جاري معالجة الصورة وتنعيم الحواف بجودة 300 DPI...",
+            resultBadge: "✨ النتيجة جاهزة للطباعة بجودة 300 DPI",
+            checkResultLabel: "فحص النتيجة:",
+            emailLabel: "احصل على دليل استراتيجيات زيادة مبيعات Redbubble مجاناً:",
+            emailPlaceholder: "أدخل بريدك الإلكتروني",
+            emailSaveBtn: "حفظ",
+            downloadBtn: "تحميل الصورة الأصلية للطباعة بجودتها الكاملة 300 DPI مجاناً 📥"
+        },
+        en: {
+            htmlLang: "en", dir: "ltr",
+            badge: "Free Community Tool for Designers ⚡",
+            title: "POD Design Optimizer",
+            desc: "Smart background removal with edge smoothing and precise sizing for Redbubble, Teepublic & Amazon.",
+            uploadLabel: "Choose or drag your design file (High-Res):",
+            uploadText: '<span class="text-emerald-400 font-semibold underline underline-offset-4">Click to upload</span> or drag and drop here',
+            subText: "PNG, JPG, WEBP in high quality",
+            previewTitle: "Original File Preview",
+            bgColorLabel: "Check on product color:",
+            labelPlatform: "Target Platform:",
+            optCustom: "Custom Size",
+            labelDpi: "Print Resolution:",
+            labelRemoveBg: "Smart Background Removal & Edge Smoothing ✨",
+            submitBtn: "Process & Download Design Free ⚡",
+            loaderText: "Processing image & smoothing edges at 300 DPI...",
+            resultBadge: "✨ Ready for Print at 300 DPI",
+            checkResultLabel: "Check result:",
+            emailLabel: "Get the Free Redbubble Sales Strategy Guide:",
+            emailPlaceholder: "Enter your email address",
+            emailSaveBtn: "Save",
+            downloadBtn: "Download Full-Res Print-Ready Image (300 DPI) 📥"
+        }
+    };
+
+    function toggleLanguage() {
+        currentLang = currentLang === 'ar' ? 'en' : 'ar';
+        const t = translations[currentLang];
+        
+        document.getElementById('htmlRoot').setAttribute('lang', t.htmlLang);
+        document.getElementById('htmlRoot').setAttribute('dir', t.dir);
+        
+        document.getElementById('badgeText').innerText = t.badge;
+        document.getElementById('mainTitle').innerText = t.title;
+        document.getElementById('mainDesc').innerText = t.desc;
+        document.getElementById('labelUpload').innerText = t.uploadLabel;
+        document.querySelector('.upload-text-inner').innerHTML = t.uploadText;
+        document.getElementById('previewTitle').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> ${t.previewTitle}`;
+        document.getElementById('bgColorLabel').innerText = t.bgColorLabel;
+        document.getElementById('labelPlatform').innerText = t.labelPlatform;
+        document.getElementById('optCustom').innerText = t.optCustom;
+        document.getElementById('labelDpi').innerText = t.labelDpi;
+        document.getElementById('labelRemoveBg').innerText = t.labelRemoveBg;
+        document.getElementById('submitBtn').innerText = t.submitBtn;
+        document.getElementById('loaderText').innerText = t.loaderText;
+        document.getElementById('resultBadge').innerText = t.resultBadge;
+        document.getElementById('checkResultLabel').innerText = t.checkResultLabel;
+        document.getElementById('emailLabel').innerText = t.emailLabel;
+        document.getElementById('userEmail').placeholder = t.emailPlaceholder;
+        document.getElementById('emailSaveBtn').innerText = t.emailSaveBtn;
+        document.getElementById('downloadBtn').innerText = t.downloadBtn;
+        
+        // تعديل محاذاة صندوق الإيميل حسب الاتجاه
+        const emailContainer = document.getElementById('emailBoxContainer');
+        emailContainer.className = `mt-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 ${t.dir === 'rtl' ? 'text-right' : 'text-left'}`;
+    }
 
     function handleFileSelect(input) {
         if (input.files && input.files[0]) {
@@ -217,7 +286,7 @@ COMMUNITY_HTML_UI = """
 
                 const tempImg = new Image();
                 tempImg.onload = function() {
-                    document.getElementById('originalDimensionsBadge').textContent = `الأبعاد: ${this.width} × ${this.height} px`;
+                    document.getElementById('originalDimensionsBadge').textContent = `${currentLang === 'ar' ? 'الأبعاد' : 'Dims'}: ${this.width} × ${this.height} px`;
                 };
                 tempImg.src = e.target.result;
             }
@@ -227,7 +296,7 @@ COMMUNITY_HTML_UI = """
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                 </div>
                 <div class="text-slate-200 font-medium mt-2">
-                    تم اختيار الملف: <span class="font-bold text-emerald-400">${file.name}</span>
+                    ${currentLang === 'ar' ? 'تم اختيار الملف:' : 'Selected File:'} <span class="font-bold text-emerald-400">${file.name}</span>
                 </div>`;
         }
     }
@@ -246,213 +315,9 @@ COMMUNITY_HTML_UI = """
         document.getElementById('customDims').style.display = platform === 'custom' ? 'grid' : 'none';
     }
 
-    // دالة حفظ البريد الإلكتروني الحقيقية (ترسل للباك إند لحفظها في emails.txt)
     async function saveEmail() {
         const emailInput = document.getElementById('userEmail');
         const email = emailInput.value;
         const msgElement = document.getElementById('emailMsg');
 
         if (email && email.includes('@')) {
-            try {
-                const response = await fetch(`${API_BASE}/collect-email/`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `email=${encodeURIComponent(email)}`
-                });
-                const data = await response.json();
-                
-                msgElement.classList.remove('hidden');
-                if (response.ok) {
-                    msgElement.className = "text-xs text-emerald-400 mt-2 font-medium";
-                    msgElement.innerText = "✨ " + data.message;
-                    emailInput.value = "";
-                } else {
-                    msgElement.className = "text-xs text-amber-400 mt-2 font-medium";
-                    msgElement.innerText = "⚠️ " + (data.detail || data.message);
-                }
-            } catch (err) {
-                alert('تعذر الاتصال بالسيرفر.');
-            }
-        } else {
-            alert('الرجاء إدخال بريد إلكتروني صحيح!');
-        }
-    }
-
-    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const fileInput = document.getElementById('imageFile');
-        if (!fileInput.files.length) { alert('الرجاء اختيار صورة أولاً!'); return; }
-
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        formData.append('platform', document.getElementById('platform').value);
-        formData.append('dpi', document.getElementById('dpiSelect').value);
-        formData.append('remove_bg', document.getElementById('removeBg').checked);
-
-        if (document.getElementById('platform').value === 'custom') {
-            const w = document.getElementById('customWidth').value;
-            const h = document.getElementById('customHeight').value;
-            if (w) formData.append('custom_width', w);
-            if (h) formData.append('custom_height', h);
-        }
-
-        const loader = document.querySelector('.loader');
-        const status = document.getElementById('status');
-        const previewContainer = document.getElementById('previewContainer');
-        const previewImg = document.getElementById('imagePreview');
-        const downloadBtn = document.getElementById('downloadBtn');
-
-        loader.style.display = 'block';
-        status.innerText = '';
-        previewContainer.style.display = 'none';
-
-        try {
-            const response = await fetch(`${API_BASE}/process-image/`, { method: 'POST', body: formData });
-            const data = await response.json();
-            loader.style.display = 'none';
-            if (response.ok) {
-                status.className = "mt-6 text-center text-sm font-semibold text-emerald-400";
-                status.innerText = `${data.message} | الأبعاد الجديدة: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
-                previewImg.src = `${API_BASE}/preview-image/?t=` + new Date().getTime();
-                previewContainer.style.display = 'block';
-                downloadBtn.href = `${API_BASE}/download/`;
-                previewContainer.scrollIntoView({ behavior: 'smooth' });
-            } else {
-                status.className = "mt-6 text-center text-sm font-semibold text-rose-400";
-                status.innerText = `حدث خطأ: ${data.detail}`;
-            }
-        } catch (err) {
-            loader.style.display = 'none';
-            status.className = "mt-6 text-center text-sm font-semibold text-rose-400";
-            status.innerText = 'تعذر الاتصال بالسيرفر.';
-        }
-    });
-</script>
-</body>
-</html>
-"""
-
-@app.head("/", include_in_schema=False)
-@app.get("/", response_class=HTMLResponse)
-async def serve_frontend():
-    return COMMUNITY_HTML_UI
-
-# 🌟 مسار استقبال وحفظ الإيميل في ملف نصي (emails.txt)
-@app.post("/collect-email/")
-async def collect_email(email: str = Form(...)):
-    if not email or "@" not in email or "." not in email:
-        raise HTTPException(status_code=400, detail="البريد الإلكتروني غير صحيح.")
-    
-    clean_email = email.strip().lower()
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    file_path = "emails.txt"
-    
-    # التحقق مما إذا كان البريد مسجلاً مسبقاً لمنع التكرار
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            if clean_email in f.read():
-                return {"status": "exists", "message": "هذا البريد مسجل مسبقاً لدينا بالفعل!"}
-    
-    # حفظ البريد الجديد في الملف
-    try:
-        with open(file_path, "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] {clean_email}\n")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="فشل حفظ البريد الإلكتروني.")
-        
-    return {"status": "success", "message": "تم حفظ بريدك بنجاح"}
-
-# 🌟 مسار سري لتحميل ملف الإيميلات النصي (emails.txt)
-@app.get("/admin/download-emails-txt/")
-async def download_emails_txt(secret_key: str):
-    ADMIN_SECRET = "MY_SECRET_ADMIN_KEY" # يمكنك تغييرها لكلمة سر خاصة بك
-    
-    if secret_key != ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="غير مسموح لك بالوصول.")
-    
-    file_path = "emails.txt"
-    if os.path.exists(file_path):
-        return FileResponse(
-            file_path,
-            media_type="text/plain",
-            filename="subscribers_emails.txt"
-        )
-    raise HTTPException(status_code=404, detail="لا توجد إيميلات مسجلة حتى الآن.")
-
-@app.post("/process-image/")
-async def process_image(
-    file: UploadFile = File(...),
-    platform: str = Form("redbubble"),
-    dpi: int = Form(300),
-    custom_width: int = Form(None),
-    custom_height: int = Form(None),
-    remove_bg: bool = Form(True)
-):
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Invalid file type.")
-    
-    try:
-        image_bytes = await file.read()
-        with Image.open(io.BytesIO(image_bytes)) as img:
-            original_size = img.size
-            mode = 'RGBA' if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info) else 'RGB'
-            pil_img = img.convert(mode)
-        
-        del image_bytes
-        gc.collect()
-
-        # محاولة إزالة الخلفية بأمان دون التسبب في انهيار السيرفر
-        if remove_bg and REMBG_AVAILABLE:
-            try:
-                pil_img = remove(pil_img)
-            except Exception as e:
-                print(f"Background removal skipped due to memory/CPU limit: {e}")
-                # يستمر الكود بشكل طبيعي دون توقف السيرفر إذا حدث خطأ في الذاكرة
-            
-        if custom_width and custom_height:
-            target_width, target_height = custom_width, custom_height
-        elif platform in PLATFORM_SPECS:
-            target_width, target_height = PLATFORM_SPECS[platform]
-        else:
-            target_width, target_height = (5000, 5000)
-            
-        preview_width = 600
-        preview_height = int(target_height * (preview_width / target_width))
-        preview_img = pil_img.resize((preview_width, preview_height), Image.Resampling.BILINEAR)
-        preview_img.save("preview_pod.png", "PNG", compress_level=1)
-        del preview_img
-        gc.collect()
-
-        full_res_img = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
-        del pil_img
-        gc.collect()
-        
-        full_res_img.save("ready_for_pod.png", "PNG", dpi=(dpi, dpi), compress_level=1)
-        del full_res_img
-        gc.collect()
-        
-        return {
-            "status": "success",
-            "message": "تمت معالجة الصورة بنجاح وتجهيزها للطباعة!",
-            "original_resolution": original_size,
-            "optimized_resolution": [target_width, target_height],
-            "preview_resolution": [preview_width, preview_height]
-        }
-        
-    except Exception as e:
-        gc.collect()
-        raise HTTPException(status_code=500, detail=f"خطأ في المعالجة: {str(e)}")
-
-@app.get("/preview-image/")
-async def preview_image():
-    file_path = "preview_pod.png"
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="image/png")
-    raise HTTPException(status_code=404, detail="Preview image not found.")
-
-@app.get("/download/")
-async def download_image():
-    file_path = "ready_for_pod.png"
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="image/png", filename="pod_ready_image_300dpi.png")
-    raise HTTPException(status_code=404, detail="Processed image not found.")
