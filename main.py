@@ -380,7 +380,6 @@ async def process_image(
     file: UploadFile = File(...),
     platform: str = Form("redbubble"),
     dpi: int = Form(300),
-    remove_bg: bool = Form(False),
     custom_width: int = Form(None),
     custom_height: int = Form(None)
 ):
@@ -389,24 +388,14 @@ async def process_image(
     
     try:
         image_bytes = await file.read()
-        pil_img = Image.open(io.BytesIO(image_bytes))
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            original_size = img.size
+            # استخدام RGB إذا لم تكن الصورة تحتوي على شفافية لتوفير 25% من الذاكرة
+            mode = 'RGBA' if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info) else 'RGB'
+            pil_img = img.convert(mode)
         
-        if pil_img.mode != 'RGBA' and pil_img.mode != 'RGB':
-            pil_img = pil_img.convert('RGBA')
-            
-        original_size = pil_img.size
-        
-        # تصغير الصورة مؤقتاً قبل إزالة الخلفية إذا كانت ضخمة جداً لتفادي انهيار الذاكرة (RAM Limit 512MB)
-        max_preview_dimension = 2000
-        if max(pil_img.size) > max_preview_dimension:
-            pil_img.thumbnail((max_preview_dimension, max_preview_dimension), Image.Resampling.LANCZOS)
-
-        # إزالة الخلفية بأمان إذا طلبها المستخدم
-        if remove_bg and REMBG_AVAILABLE:
-            try:
-                pil_img = remove(pil_img)
-            except Exception as e:
-                print(f"Rembg warning: {str(e)}")
+        del image_bytes
+        gc.collect()
             
         if custom_width and custom_height:
             target_width, target_height = custom_width, custom_height
@@ -415,24 +404,26 @@ async def process_image(
         else:
             target_width, target_height = (5000, 5000)
             
-        # 1. حفظ الملف الأصلي عالي الجودة للتحميل المدفوع
-        full_res_img = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
-        full_res_filename = "ready_for_pod.png"
-        full_res_img.save(full_res_filename, "PNG", dpi=(dpi, dpi))
-
-        # 2. إنشاء نسخة معاينة منخفضة الجودة للمعاينة المجانية
+        # 1. إنشاء وحفظ نسخة المعاينة أولاً (سريعة وخفيفة)
         preview_width = 600
         preview_height = int(target_height * (preview_width / target_width))
         preview_img = pil_img.resize((preview_width, preview_height), Image.Resampling.BILINEAR)
-        preview_filename = "preview_pod.png"
-        preview_img.save(preview_filename, "PNG", dpi=(72, 72))
+        preview_img.save("preview_pod.png", "PNG", compress_level=1)
+        del preview_img
+        gc.collect()
+
+        # 2. حفظ الملف الأصلي عالي الجودة مع تسريع الضغط لتفادي Timeout
+        full_res_img = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        del pil_img
+        gc.collect()
         
-        del image_bytes, pil_img, full_res_img, preview_img
+        full_res_img.save("ready_for_pod.png", "PNG", dpi=(dpi, dpi), compress_level=1)
+        del full_res_img
         gc.collect()
         
         return {
             "status": "success",
-            "message": "تمت معالجة وإزالة الخلفية بنجاح! شاهد المعاينة المجانية أدناه.",
+            "message": "تمت معالجة الصورة بنجاح! شاهد المعاينة المجانية أدناه.",
             "original_resolution": original_size,
             "optimized_resolution": [target_width, target_height],
             "preview_resolution": [preview_width, preview_height]
