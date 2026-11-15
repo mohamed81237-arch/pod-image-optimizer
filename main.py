@@ -36,14 +36,14 @@ PRICING_PLANS = {
     "pro": {"name": "باقة 50 صورة احترافية (الأفضل قيمة)", "amount": 2500}
 }
 
-# واجهة SaaS عصرية وفخمة جداً بتأثيرات الزجاج المعشي (Glassmorphism)
+# واجهة SaaS عصرية وفخمة جداً مع المعاينة الفورية وفحص الخلفيات ودليل البائعين
 LUXURY_HTML_UI = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة تجهيز وتحسين تصاميم الطباعة عند الطلب (POD)</title>
+    <title>منصة تجهيز وتحسين تصاميم الطباعة عند الطلب (POD Master Studio)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -59,6 +59,9 @@ LUXURY_HTML_UI = """
             border-color: #3b82f6;
             background: rgba(30, 58, 138, 0.4);
             box-shadow: 0 0 25px rgba(59, 130, 246, 0.25);
+        }
+        .checkerboard {
+            background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==");
         }
     </style>
 </head>
@@ -89,7 +92,7 @@ LUXURY_HTML_UI = """
                 <div>
                     <label class="block text-sm font-semibold mb-3 text-slate-200">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
                     <div class="border-2 border-dashed border-slate-700 hover:border-blue-500/80 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 bg-slate-900/50 hover:bg-slate-900/80 relative group">
-                        <input type="file" id="imageFile" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" required onchange="updateFileName(this)">
+                        <input type="file" id="imageFile" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" required onchange="handleFileSelect(this)">
                         <div id="fileLabelText" class="space-y-2">
                             <div class="w-12 h-12 mx-auto rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition duration-300">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -99,6 +102,32 @@ LUXURY_HTML_UI = """
                             </div>
                             <p class="text-xs text-slate-500">PNG, JPG, WEBP بجودة عالية</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 🌟 معاينة فورية (Live Local Preview) مع أزرار فحص الخلفيات المتعددة -->
+                <div id="instantPreviewContainer" class="hidden p-4 rounded-2xl bg-slate-950/60 border border-slate-800 transition-all">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold text-blue-400 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            معاينة الملف الأصلي قبل المعالجة
+                        </span>
+                        <span id="originalDimensionsBadge" class="text-xs bg-slate-900 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-800">
+                            جاري قراءة الأبعاد...
+                        </span>
+                    </div>
+                    
+                    <!-- أزرار تبديل الخلفية (QA Background Switcher) -->
+                    <div class="flex items-center justify-center gap-2 mb-3">
+                        <span class="text-xs text-slate-400 ml-1">فحص على لون المنتج:</span>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-600 checkerboard focus:ring-2 ring-blue-500" title="خلفية شفافة"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-black focus:ring-2 ring-blue-500" title="تيشرت أسود"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-[#0f172a] focus:ring-2 ring-blue-500" title="تيشرت كحلي"></button>
+                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-white focus:ring-2 ring-blue-500" title="تيشرت أبيض"></button>
+                    </div>
+
+                    <div id="instantPreviewBox" class="relative w-full h-56 rounded-xl overflow-hidden flex items-center justify-center checkerboard transition-colors duration-300">
+                        <img id="instantPreviewImg" src="" alt="Instant Preview" class="max-h-48 max-w-full object-contain drop-shadow-md" />
                     </div>
                 </div>
 
@@ -172,12 +201,23 @@ LUXURY_HTML_UI = """
 
             <div id="status" class="mt-6 text-center text-sm font-medium"></div>
 
-            <!-- معاينة الجودة المنخفضة المجانية -->
+            <!-- معاينة الجودة المنخفضة المجانية بعد المعالجة -->
             <div class="text-center mt-6 p-5 bg-slate-900/80 rounded-2xl border border-slate-700/60 hidden shadow-inner" id="previewContainer">
-                <p class="text-xs text-amber-400 mb-3 font-bold bg-amber-500/10 py-1.5 px-3 rounded-full inline-block border border-amber-500/20">
-                    ⚠️ معاينة مجانية بجودة منخفضة (غير صالحة للطباعة المباشرة)
-                </p>
-                <div class="p-4 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] rounded-xl border border-slate-800">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs text-amber-400 font-bold bg-amber-500/10 py-1.5 px-3 rounded-full border border-amber-500/20">
+                        ⚠️ معاينة مجانية بجودة منخفضة (غير صالحة للطباعة المباشرة)
+                    </span>
+                    
+                    <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800">
+                        <span class="text-xs text-slate-400 ml-1">فحص النتيجة:</span>
+                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'checker')" class="w-5 h-5 rounded-full border border-slate-600 checkerboard" title="شفاف"></button>
+                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'black')" class="w-5 h-5 rounded-full border border-slate-600 bg-black" title="أسود"></button>
+                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'navy')" class="w-5 h-5 rounded-full border border-slate-600 bg-[#0f172a]" title="كحلي"></button>
+                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'white')" class="w-5 h-5 rounded-full border border-slate-600 bg-white" title="أبيض"></button>
+                    </div>
+                </div>
+
+                <div id="processedPreviewBox" class="p-4 checkerboard rounded-xl border border-slate-800 transition-colors duration-300">
                     <img id="imagePreview" src="" alt="معاينة الصورة" class="max-h-72 mx-auto rounded-lg shadow-2xl object-contain">
                 </div>
             </div>
@@ -192,6 +232,34 @@ LUXURY_HTML_UI = """
                 </a>
             </div>
         </div>
+
+        <!-- 🌟 قسم دليل البائعين الإرشادي (POD Seller's Guide - لزيادة قيمة الموقع و SEO) -->
+        <section class="mt-16">
+            <div class="text-center mb-10">
+                <h2 class="text-2xl font-bold text-white mb-3">دليل تجهيز التصاميم للطباعة حسب الطلب (POD)</h2>
+                <p class="text-slate-400 text-sm max-w-xl mx-auto">قواعد فحص الجودة الأساسية لضمان قبول تصاميمك وظهورها بأعلى دقة على التيشرتات والأكواب.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl mb-4">👕</div>
+                    <h3 class="text-base font-bold text-white mb-2">الفحص على الألوان الداكنة</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">اختبر تصميمك دائماً على خلفية سوداء أو كحلية لكشف أي حواف بيضاء غير مرغوب فيها قبل رفعها للمتجر[cite: 3].</p>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">📐</div>
+                    <h3 class="text-base font-bold text-white mb-2">معيار 300 DPI</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">تأكد من تصدير ملفك بالأبعاد والمقاسات الصحيحة للمنصة المستهدفة لتفادي بهتان الطباعة[cite: 3].</p>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-4">✨</div>
+                    <h3 class="text-base font-bold text-white mb-2">نسخ مخصصة لكل منتج</h3>
+                    <p class="text-slate-400 text-xs leading-relaxed">التصاميم ذات النصوص الفاتحة تتطلب عناية خاصة عند طباعتها على منتجات بيضاء أو سوداء[cite: 3].</p>
+                </div>
+            </div>
+        </section>
     </div>
 
 <script>
@@ -204,15 +272,47 @@ LUXURY_HTML_UI = """
         document.getElementById(`card-${planKey}`).classList.add('selected');
     }
 
-    function updateFileName(input) {
-        if(input.files && input.files[0]) {
+    // 1. المعاينة الفورية (Live Local Preview) عند اختيار الملف
+    function handleFileSelect(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                document.getElementById('instantPreviewImg').src = e.target.result;
+                document.getElementById('instantPreviewContainer').classList.remove('hidden');
+
+                const tempImg = new Image();
+                tempImg.onload = function() {
+                    document.getElementById('originalDimensionsBadge').textContent = `الأبعاد: ${this.width} × ${this.height} px`;
+                };
+                tempImg.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+
             document.getElementById('fileLabelText').innerHTML = `
                 <div class="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                 </div>
                 <div class="text-slate-200 font-medium mt-2">
-                    تم اختيار الملف: <span class="font-bold text-emerald-400">${input.files[0].name}</span>
+                    تم اختيار الملف: <span class="font-bold text-emerald-400">${file.name}</span>
                 </div>`;
+        }
+    }
+
+    // 2. دالة تبديل الخلفية (QA Background Switcher)
+    function changePreviewBg(boxId, bgType) {
+        const box = document.getElementById(boxId);
+        box.classList.remove('bg-black', 'bg-white', 'bg-[#0f172a]', 'checkerboard');
+
+        if (bgType === 'checker') {
+            box.classList.add('checkerboard');
+        } else if (bgType === 'black') {
+            box.classList.add('bg-black');
+        } else if (bgType === 'navy') {
+            box.classList.add('bg-[#0f172a]');
+        } else if (bgType === 'white') {
+            box.classList.add('bg-white');
         }
     }
 
@@ -377,6 +477,7 @@ async def create_checkout_session(request: Request, plan: str = Form("single")):
     except Exception as e:
         print(f"Stripe Error Detail: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Stripe Error: {str(e)}")
+
 @app.post("/process-image/")
 async def process_image(
     file: UploadFile = File(...),
@@ -392,7 +493,6 @@ async def process_image(
         image_bytes = await file.read()
         with Image.open(io.BytesIO(image_bytes)) as img:
             original_size = img.size
-            # استخدام RGB إذا لم تكن الصورة تحتوي على شفافية لتوفير 25% من الذاكرة
             mode = 'RGBA' if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info) else 'RGB'
             pil_img = img.convert(mode)
         
@@ -406,7 +506,7 @@ async def process_image(
         else:
             target_width, target_height = (5000, 5000)
             
-        # 1. إنشاء وحفظ نسخة المعاينة أولاً (سريعة وخفيفة)
+        # 1. إنشاء وحفظ نسخة المعاينة أولاً
         preview_width = 600
         preview_height = int(target_height * (preview_width / target_width))
         preview_img = pil_img.resize((preview_width, preview_height), Image.Resampling.BILINEAR)
@@ -414,7 +514,7 @@ async def process_image(
         del preview_img
         gc.collect()
 
-        # 2. حفظ الملف الأصلي عالي الجودة مع تسريع الضغط لتفادي Timeout
+        # 2. حفظ الملف الأصلي عالي الجودة
         full_res_img = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
         del pil_img
         gc.collect()
