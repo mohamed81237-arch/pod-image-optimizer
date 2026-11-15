@@ -22,7 +22,7 @@ PLATFORM_SPECS = {
     "merch": (4500, 5400)
 }
 
-# الواجهة الأمامية مع دعم اللغتين (عربي / إنجليزي) ومفتاح التبديل
+# الواجهة الأمامية بدون أي أزرار تبرعات أو دعم مادي
 COMMUNITY_HTML_UI = """
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" id="htmlRoot">
@@ -271,22 +271,8 @@ COMMUNITY_HTML_UI = """
         document.getElementById('emailSaveBtn').innerText = t.emailSaveBtn;
         document.getElementById('downloadBtn').innerText = t.downloadBtn;
         
-        // تعديل محاذاة صندوق الإيميل حسب الاتجاه
         const emailContainer = document.getElementById('emailBoxContainer');
-        emailContainer.className = `mt-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 ${t.dir === 'rtl' ? 'text-right' : 'text-left'}`;
-    }
-
-    function handleFileSelect(input) {
-        if (input.files && input.files[0]) {
-            const file = input.files[0];
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('instantPreviewImg').src = e.target.result;
-                document.getElementById('instantPreviewContainer').classList.remove('hidden');
-
-                const tempImg = new Image();
-                tempImg.onload = function() {
-                    document.getElementById('originalDimensionsBadge').textContent = `${currentLang === 'ar' ? 'الأبعاد' : 'Dims'}: ${this.width} × ${this.height} px`;
+        emailContainer.className = `mt-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800 ${t.dir === 'rtl' ? 'text-right' : 'text-left'}`; }  function handleFileSelect(input) { if (input.files && input.files[0]) { const file = input.files[0]; const reader = new FileReader(); reader.onload = function(e) { document.getElementById('instantPreviewImg').src = e.target.result; document.getElementById('instantPreviewContainer').classList.remove('hidden');  const tempImg = new Image(); tempImg.onload = function() { document.getElementById('originalDimensionsBadge').textContent = `${currentLang === 'ar' ? 'الأبعاد' : 'Dims'}: ${this.width} ×${this.height} px`;
                 };
                 tempImg.src = e.target.result;
             }
@@ -321,3 +307,60 @@ COMMUNITY_HTML_UI = """
         const msgElement = document.getElementById('emailMsg');
 
         if (email && email.includes('@')) {
+            try {
+                const response = await fetch(`${API_BASE}/collect-email/`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `email=${encodeURIComponent(email)}`
+                });
+                const data = await response.json();
+                
+                msgElement.classList.remove('hidden');
+                if (response.ok) {
+                    msgElement.className = "text-xs text-emerald-400 mt-2 font-medium";
+                    msgElement.innerText = "✨ " + data.message;
+                    emailInput.value = "";
+                } else {
+                    msgElement.className = "text-xs text-amber-400 mt-2 font-medium";
+                    msgElement.innerText = "⚠️ " + (data.detail || data.message);
+                }
+            } catch (err) {
+                alert('Connection error.');
+            }
+        } else {
+            alert('Please enter a valid email address!');
+        }
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('imageFile');
+        if (!fileInput.files.length) { alert('Please select an image first!'); return; }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('platform', document.getElementById('platform').value);
+        formData.append('dpi', document.getElementById('dpiSelect').value);
+        formData.append('remove_bg', document.getElementById('removeBg').checked);
+
+        if (document.getElementById('platform').value === 'custom') {
+            const w = document.getElementById('customWidth').value;
+            const h = document.getElementById('customHeight').value;
+            if (w) formData.append('custom_width', w);
+            if (h) formData.append('custom_height', h);
+        }
+
+        const loader = document.querySelector('.loader');
+        const status = document.getElementById('status');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImg = document.getElementById('imagePreview');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        loader.style.display = 'block';
+        status.innerText = '';
+        previewContainer.style.display = 'none';
+
+        try {
+            const response = await fetch(`${API_BASE}/process-image/`, { method: 'POST', body: formData }); const data = await response.json(); loader.style.display = 'none'; if (response.ok) { status.className = "mt-6 text-center text-sm font-semibold text-emerald-400"; status.innerText = `${data.message} | Size: ${data.optimized_resolution[0]}×${data.optimized_resolution[1]}`;
+                previewImg.src = `${API_BASE}/preview-image/?t=` + new Date().getTime(); previewContainer.style.display = 'block'; downloadBtn.href = `${API_BASE}/download/`;
+                previewContainer.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                status.className = "mt-6 text-center text-sm font-semibold text-rose-400";
+                status.innerText = `Error
