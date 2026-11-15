@@ -1,395 +1,161 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة تجهيز وتحسين صور الطباعة حسب الطلب (POD Image Optimizer)</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            background-color: #090d16;
-            color: #f8fafc;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        }
-        .checkerboard {
-            background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==");
-        }
-    </style>
-</head>
-<body class="min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image, ImageFilter
+import io
+import os
+import gc
+from datetime import datetime
 
-    <!-- رأس الصفحة -->
-    <header class="border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                    <span class="text-white font-bold text-lg">P</span>
-                </div>
-                <span class="font-bold text-lg tracking-wide text-white">POD Master Studio</span>
-            </div>
-            <span class="text-xs px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                منصة احترافية للبائعين 300 DPI
-            </span>
-        </div>
-    </header>
+app = FastAPI()
 
-    <!-- المحتوى الرئيسي -->
-    <main class="max-w-4xl mx-auto px-4 py-12 w-full flex-grow">
-        
-        <div class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight mb-3 text-white">
-                مُحسّن صور الطباعة حسب الطلب
-            </h1>
-            <p class="text-slate-400 text-sm md:text-base max-w-xl mx-auto">
-                جهز تصاميمك بدقة 300 DPI وافحصها على ألوان المنتجات المختلفة قبل رفعها لمنصات مثل Redbubble و Amazon.
-            </p>
-        </div>
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-        <!-- صندوق العمل الرئيسي -->
-        <div class="p-6 md:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-xl">
-            <form id="uploadForm" class="space-y-6">
-                
-                <!-- اختيار الملف -->
-                <!-- 1. قسم المعاينة الفورية قبل المعالجة (يوضع داخل نموذج الرفع أسفل مربع اختيار الملف) -->
-<div id="instantPreviewContainer" class="hidden mt-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/60 backdrop-blur-md transition-all">
-    <div class="flex items-center justify-between mb-3">
-        <span class="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            معاينة الملف الأصلي المرفوع
-        </span>
-        <span id="originalDimensionsBadge" class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
-            جاري قراءة الأبعاد...
-        </span>
-    </div>
-    
-    <!-- أزرار تبديل خلفية المعاينة الفورية -->
-    <div class="flex items-center justify-center gap-2 mb-3">
-        <span class="text-xs text-slate-400 ml-1">فحص الخلفية:</span>
-        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')] focus:ring-2 ring-indigo-500" title="خلفية شفافة"></button>
-        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-black focus:ring-2 ring-indigo-500" title="تيشرت أسود (فحص الحواف البيضاء)"></button>
-        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-[#0f172a] focus:ring-2 ring-indigo-500" title="تيشرت كحلي"></button>
-        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-500 bg-white focus:ring-2 ring-indigo-500" title="تيشرت أبيض (فحص النصوص الفاتحة)"></button>
-    </div>
-
-    <div id="instantPreviewBox" class="relative w-full h-64 rounded-xl overflow-hidden flex items-center justify-center border border-slate-700/50 transition-colors duration-300 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')]">
-        <img id="instantPreviewImg" src="" alt="Instant Preview" class="max-h-56 max-w-full object-contain drop-shadow-md transition-transform duration-300 hover:scale-105" />
-    </div>
-</div>
-
-<!-- 2. قسم المعاينة النهائية بعد المعالجة مع أزرار فحص ألوان المنتجات -->
-<div id="resultSection" class="hidden mt-8 p-6 rounded-3xl bg-slate-900/90 border border-indigo-500/30 shadow-2xl backdrop-blur-xl">
-    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
-        <span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            ⚠️ معاينة مجانية بجودة منخفضة (غير صالحة للطباعة المباشرة)
-        </span>
-        
-        <!-- شريط أزرار فحص الجودة (QA Color Check) -->
-        <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-            <span class="text-xs text-slate-300 ml-1">اختبر على لون المنتج:</span>
-            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'checker')" class="w-6 h-6 rounded-full border border-slate-400 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')] hover:scale-110 transition" title="خلفية شفافة"></button>
-            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'black')" class="w-6 h-6 rounded-full border border-slate-400 bg-black hover:scale-110 transition" title="أسود داكن"></button>
-            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'navy')" class="w-6 h-6 rounded-full border border-slate-400 bg-[#1e293b] hover:scale-110 transition" title="كحلي"></button>
-            <button type="button" onclick="changePreviewBg('processedPreviewBox', 'white')" class="w-6 h-6 rounded-full border border-slate-400 bg-white hover:scale-110 transition" title="أبيض ناصع"></button>
-        </div>
-    </div>
-
-    <div id="processedPreviewBox" class="w-full h-80 rounded-2xl flex items-center justify-center p-4 border border-slate-700/60 transition-colors duration-300 bg-[#0f172a]">
-        <img id="previewImage" src="" alt="Processed Preview" class="max-h-72 max-w-full object-contain" />
-    </div>
-</div>
-
-<!-- 3. قسم دليل البائعين الإرشادي (مستوحى من مرجعية BGRemover) -->
-<section class="mt-16 max-w-5xl mx-auto px-4 pb-16">
-    <div class="text-center mb-10">
-        <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">دليل تجهيز التصاميم للطباعة حسب الطلب (POD)</h2>
-        <p class="text-slate-400 text-sm max-w-2xl mx-auto">قواعد فحص الجودة الأساسية لضمان قبول تصاميمك وظهورها بأعلى دقة على التيشرتات والأكواب والملصقات.</p>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-6">
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl mb-4">👕</div>
-            <h3 class="text-lg font-bold text-white mb-2">الفحص على الألوان الداكنة</h3>
-            <p class="text-slate-400 text-sm leading-relaxed">لا تعتمد على الخلفية الشفافة فقط؛ اختبر تصميمك دائماً على خلفية سوداء أو كحلية لكشف أي هالات بيضاء أو بقايا غير مرغوب فيها حول الحواف قبل الطباعة.</p>
-        </div>
-
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">📐</div>
-            <h3 class="text-lg font-bold text-white mb-2">معيار 300 DPI والأبعاد</h3>
-            <p class="text-slate-400 text-sm leading-relaxed">دقة 300 DPI وحدها لا تكفي إذا كانت أبعاد البكسل صغيرة. تأكد من تصدير ملفك بأبعاد المنصة المطلوبة (مثل 5000×5000 لـ Redbubble) لتفادي بهتان الطباعة.</p>
-        </div>
-
-        <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-4">✨</div>
-            <h3 class="text-lg font-bold text-white mb-2">نسخ مخصصة لكل لون</h3>
-            <p class="text-slate-400 text-sm leading-relaxed">التصاميم التي تحتوي على نصوص بيضاء أو تفاصيل فاتحة تختفي على المنتجات البيضاء. احتفظ بملف رئيسي شفاف وأنشئ نسخة بحدود داكنة للمنتجات الفاتحة.</p>
-        </div>
-    </div>
-</section>
-                <div>
-                    <label class="block text-sm font-medium text-slate-300 mb-2">اختر أو اسحب ملف التصميم (صورة عالية الدقة):</label>
-                    <input type="file" id="fileInput" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer bg-slate-950/50 rounded-2xl border border-slate-700/60 p-2">
-                </div>
-
-                <!-- معاينة الملف الأصلي مباشرة بعد الاختيار -->
-                <div id="instantPreviewContainer" class="hidden p-4 rounded-2xl bg-slate-950/60 border border-slate-800 transition-all">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-semibold text-indigo-400 flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            معاينة الملف الأصلي المرفوع
-                        </span>
-                        <span id="originalDimensionsBadge" class="text-xs bg-slate-900 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-800">
-                            جاري قراءة الأبعاد...
-                        </span>
-                    </div>
-                    
-                    <!-- أزرار تبديل الخلفية للفحص -->
-                    <div class="flex items-center justify-center gap-2 mb-3">
-                        <span class="text-xs text-slate-400 ml-1">فحص الخلفية:</span>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'checker')" class="w-6 h-6 rounded-full border-2 border-slate-600 checkerboard focus:ring-2 ring-indigo-500" title="خلفية شفافة"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'black')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-black focus:ring-2 ring-indigo-500" title="تيشرت أسود"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'navy')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-[#0f172a] focus:ring-2 ring-indigo-500" title="تيشرت كحلي"></button>
-                        <button type="button" onclick="changePreviewBg('instantPreviewBox', 'white')" class="w-6 h-6 rounded-full border-2 border-slate-600 bg-white focus:ring-2 ring-indigo-500" title="تيشرت أبيض"></button>
-                    </div>
-
-                    <div id="instantPreviewBox" class="relative w-full h-56 rounded-xl overflow-hidden flex items-center justify-center checkerboard transition-colors duration-300">
-                        <img id="instantPreviewImg" src="" alt="Instant Preview" class="max-h-48 max-w-full object-contain drop-shadow-md" />
-                    </div>
-                </div>
-
-                <!-- خيارات المنصة والدقة -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-300 mb-2">المنصة المستهدفة:</label>
-                        <select id="platformSelect" class="w-full bg-slate-950/50 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 ring-indigo-500">
-                            <option value="redbubble">Redbubble (5000 × 5000 px)</option>
-                            <option value="amazon">Merch by Amazon (4500 × 5400 px)</option>
-                            <option value="etsy">Etsy / General (Custom)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-300 mb-2">دقة الطباعة المطلوبة:</label>
-                        <select id="dpiSelect" class="w-full bg-slate-950/50 border border-slate-700/60 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 ring-indigo-500">
-                            <option value="300">300 DPI (قياسي واحترافي للطباعة)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- زر المعالجة -->
-                <button type="submit" id="processBtn" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500 transition-all duration-300 flex items-center justify-center gap-2">
-                    <span>معالجة ومعاينة التصميم مجانًا</span>
-                    <span>⚡</span>
-                </button>
-            </form>
-
-            <!-- قسم النتيجة والمعاينة النهائية بعد المعالجة -->
-            <div id="resultSection" class="hidden mt-8 pt-8 border-t border-slate-800">
-                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
-                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        ⚠️ معاينة مجانية بجودة منخفضة (غير صالحة للطباعة المباشرة)
-                    </span>
-                    
-                    <!-- فحص الألوان للمنتج النهائي -->
-                    <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800">
-                        <span class="text-xs text-slate-400 ml-1">اختبر على لون المنتج:</span>
-                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'checker')" class="w-6 h-6 rounded-full border border-slate-600 checkerboard" title="شفاف"></button>
-                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'black')" class="w-6 h-6 rounded-full border border-slate-600 bg-black" title="أسود"></button>
-                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'navy')" class="w-6 h-6 rounded-full border border-slate-600 bg-[#0f172a]" title="كحلي"></button>
-                        <button type="button" onclick="changePreviewBg('processedPreviewBox', 'white')" class="w-6 h-6 rounded-full border border-slate-600 bg-white" title="أبيض"></button>
-                    </div>
-                </div>
-
-                <div id="processedPreviewBox" class="w-full h-80 rounded-2xl flex items-center justify-center p-4 checkerboard border border-slate-800 transition-colors duration-300">
-                    <img id="previewImage" src="" alt="Processed Preview" class="max-h-72 max-w-full object-contain" />
-                </div>
-
-                <!-- زر الدفع لإتمام التحميل الأصلي -->
-                <div class="mt-6">
-                    <button id="checkoutBtn" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-lg shadow-emerald-600/30 hover:from-emerald-500 hover:to-teal-500 transition-all duration-300 flex items-center justify-center gap-2">
-                        <span>إتمام الدفع لتحميل الملف الأصلي (300 DPI) 💳</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- قسم دليل البائعين الإرشادي (مرجعية BGRemover)[cite: 3] -->
-        <section class="mt-16">
-            <div class="text-center mb-10">
-                <h2 class="text-2xl font-bold text-white mb-3">دليل تجهيز التصاميم للطباعة حسب الطلب (POD)</h2>
-                <p class="text-slate-400 text-sm max-w-xl mx-auto">قواعد فحص الجودة لضمان قبول تصاميمك وخلوها من الهالات البيضاء.</p>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-6">
-                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl mb-4">👕</div>
-                    <h3 class="text-base font-bold text-white mb-2">الفحص على الألوان الداكنة</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">اختبر تصميمك على خلفية سوداء أو كحلية لكشف أي حواف بيضاء غير مرغوب فيها قبل رفعها للمتجر[cite: 3].</p>
-                </div>
-
-                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl mb-4">📐</div>
-                    <h3 class="text-base font-bold text-white mb-2">معيار 300 DPI</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">تأكد من تصدير ملفك بالأبعاد والمقاسات الصحيحة للمنصة المستهدفة لتفادي بهتان الطباعة[cite: 3].</p>
-                </div>
-
-                <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md">
-                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl mb-4">✨</div>
-                    <h3 class="text-base font-bold text-white mb-2">نسخ مخصصة لكل منتج</h3>
-                    <p class="text-slate-400 text-xs leading-relaxed">التصاميم ذات النصوص الفاتحة تتطلب عناية خاصة عند طباعتها على منتجات بيضاء أو سوداء[cite: 3].</p>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- تذييل الصفحة -->
-    <footer class="border-t border-slate-800/80 bg-slate-950/60 py-6 text-center text-xs text-slate-500">
-        <p>© 2026 POD Master Studio. جميع الحقوق محفوظة.</p>
-    </footer>
-
-    <!-- جافاسكريبت للتشغيل -->
-    <script>
-        const fileInput = document.getElementById('fileInput');
-        const instantPreviewContainer = document.getElementById('instantPreviewContainer');
-        const instantPreviewImg = document.getElementById('instantPreviewImg');
-        const originalDimensionsBadge = document.getElementById('originalDimensionsBadge');
-        const uploadForm = document.getElementById('uploadForm');
-        const resultSection = document.getElementById('resultSection');
-        const previewImage = document.getElementById('previewImage');
-
-        // 1. معاينة الصورة فوراً عند اختيارها
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                instantPreviewImg.src = event.target.result;
-                instantPreviewContainer.classList.remove('hidden');
-
-                const tempImg = new Image();
-                tempImg.onload = function() {
-                    originalDimensionsBadge.textContent = `الأبعاد: ${this.width} × ${this.height} px`;
-                };
-                tempImg.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-
-        // 2. تبديل لون الخلفية لفحص الجودة
-        function changePreviewBg(boxId, bgType) {
-            const box = document.getElementById(boxId);
-            box.classList.remove('bg-black', 'bg-white', 'bg-[#0f172a]', 'checkerboard');
-
-            if (bgType === 'checker') {
-                box.classList.add('checkerboard');
-            } else if (bgType === 'black') {
-                box.classList.add('bg-black');
-            } else if (bgType === 'navy') {
-                box.classList.add('bg-[#0f172a]');
-            } else if (bgType === 'white') {
-                box.classList.add('bg-white');
-            }
-        }
-
-        // 3. إرسال الصورة للسيرفر والمعالجة
-        uploadForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const file = fileInput.files[0];
-            if (!file) {
-                alert('الرجاء اختيار ملف أولاً.');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('platform', document.getElementById('platformSelect').value);
-            formData.append('dpi', document.getElementById('dpiSelect').value);
-
-            const btn = document.getElementById('processBtn');
-            btn.disabled = true;
-            btn.textContent = 'جاري المعالجة الاحترافية...';
-
-            try {
-                const response = await fetch('/process-image/', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) throw new Error('فشلت عملية المعالجة في السيرفر.');
-
-                // افتراضياً نعرض المعاينة من رابط مؤقت أو ملف تم حفظه
-                previewImage.src = URL.createObjectURL(file); // أو رابط معاينة السيرفر
-                resultSection.classList.remove('hidden');
-                resultSection.scrollIntoView({ behavior: 'smooth' });
-            } catch (err) {
-                alert('حدث خطأ أثناء المعالجة: ' + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<span>معالجة ومعاينة التصميم مجانًا</span><span>⚡</span>';
-            }
-        });
-
-        // 4. ربط زر الدفع بـ Stripe
-        document.getElementById('checkoutBtn').addEventListener('click', async function() {
-            try {
-                const response = await fetch('/create-checkout-session/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'plan=single'
-                });
-                const data = await response.json();
-                if (data.checkout_url) {
-                    window.location.href = data.checkout_url;
-                } else {
-                    alert('خطأ في إنشاؤ جلسة الدفع.');
-                }
-            } catch (e) {
-                alert('تعذر الاتصال ببوابة الدفع.');
-            }
-        });
-    </script> 
-    const fileInput = document.getElementById('fileInput'); // تأكد من تطابق الـ ID مع حقل الرفع لديك
-const instantPreviewContainer = document.getElementById('instantPreviewContainer');
-const instantPreviewImg = document.getElementById('instantPreviewImg');
-const originalDimensionsBadge = document.getElementById('originalDimensionsBadge');
-
-// 1. معاينة التصميم مباشرة فور اختياره من الجهاز
-fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        instantPreviewImg.src = event.target.result;
-        instantPreviewContainer.classList.remove('hidden');
-
-        // قراءة أبعاد الصورة الأصلية وعرضها للمستخدم
-        const tempImg = new Image();
-        tempImg.onload = function() {
-            originalDimensionsBadge.textContent = `الأبعاد الأصلية: ${this.width} × ${this.height} px`;
-        };
-        tempImg.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-});
-
-// 2. دالة تبديل لون خلفية المعاينة (فحص جودة الـ POD)
-function changePreviewBg(boxId, bgType) {
-    const box = document.getElementById(boxId);
-    // إزالة الخلفيات السابقة
-    box.classList.remove('bg-black', 'bg-white', 'bg-[#0f172a]', 'bg-[#1e293b]');
-    box.style.backgroundImage = 'none';
-
-    if (bgType === 'checker') {
-        box.style.backgroundImage = "url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')";
-    } else if (bgType === 'black') {
-        box.classList.add('bg-black');
-    } else if (bgType === 'navy') {
-        box.classList.add('bg-[#0f172a]');
-    } else if (bgType === 'white') {
-        box.classList.add('bg-white');
-    }
+PLATFORM_SPECS = {
+    "redbubble": (5000, 5000),
+    "teepublic": (5000, 5500),
+    "merch": (4500, 5400)
 }
-</body>
-</html>
+
+# قراءة الواجهة من ملف index.html الخارجي (يمنع أي أخطاء SyntaxError نهائياً)
+@app.head("/", include_in_schema=False)
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    file_path = "index.html"
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return "<h3>index.html not found! Please create the frontend file.</h3>"
+
+@app.post("/collect-email/")
+async def collect_email(email: str = Form(...)):
+    if not email or "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="Invalid email address.")
+    
+    clean_email = email.strip().lower()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    file_path = "emails.txt"
+    
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            if clean_email in f.read():
+                return {"status": "exists", "message": "This email is already registered!"}
+    
+    try:
+        with open(file_path, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {clean_email}\n")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to save email.")
+        
+    return {"status": "success", "message": "Email saved successfully!"}
+
+@app.get("/admin/download-emails-txt/")
+async def download_emails_txt(secret_key: str):
+    ADMIN_SECRET = "MY_SECRET_ADMIN_KEY"
+    if secret_key != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized access.")
+    
+    file_path = "emails.txt"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="text/plain", filename="subscribers_emails.txt")
+    raise HTTPException(status_code=404, detail="No emails registered yet.")
+
+def smart_remove_bg_and_smooth(pil_img: Image.Image) -> Image.Image:
+    pil_img = pil_img.convert("RGBA")
+    datas = pil_img.getdata()
+    
+    new_data = []
+    for item in datas:
+        if item[0] > 240 and item[1] > 240 and item[2] > 240:
+            new_data.append((255, 255, 255, 0))
+        else:
+            new_data.append(item)
+            
+    pil_img.putdata(new_data)
+    
+    alpha = pil_img.split()[3]
+    alpha = alpha.filter(ImageFilter.SMOOTH_MORE)
+    pil_img.putalpha(alpha)
+    
+    return pil_img
+
+@app.post("/process-image/")
+async def process_image(
+    file: UploadFile = File(...),
+    platform: str = Form("redbubble"),
+    dpi: int = Form(300),
+    custom_width: int = Form(None),
+    custom_height: int = Form(None),
+    remove_bg: bool = Form(True)
+):
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid file type.")
+    
+    try:
+        image_bytes = await file.read()
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            original_size = img.size
+            mode = 'RGBA' if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info) else 'RGB'
+            pil_img = img.convert(mode)
+        
+        del image_bytes
+        gc.collect()
+
+        if remove_bg:
+            try:
+                pil_img = smart_remove_bg_and_smooth(pil_img)
+            except Exception as e:
+                print(f"Background removal notice: {e}")
+            
+        if custom_width and custom_height:
+            target_width, target_height = custom_width, custom_height
+        elif platform in PLATFORM_SPECS:
+            target_width, target_height = PLATFORM_SPECS[platform]
+        else:
+            target_width, target_height = (5000, 5000)
+            
+        preview_width = 600
+        preview_height = int(target_height * (preview_width / target_width))
+        preview_img = pil_img.resize((preview_width, preview_height), Image.Resampling.BILINEAR)
+        preview_img.save("preview_pod.png", "PNG", compress_level=1)
+        del preview_img
+        gc.collect()
+
+        full_res_img = pil_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        del pil_img
+        gc.collect()
+        
+        full_res_img.save("ready_for_pod.png", "PNG", dpi=(dpi, dpi), compress_level=1)
+        del full_res_img
+        gc.collect()
+        
+        return {
+            "status": "success",
+            "message": "Processed & Edges Smoothed Successfully!",
+            "original_resolution": original_size,
+            "optimized_resolution": [target_width, target_height],
+            "preview_resolution": [preview_width, preview_height]
+        }
+        
+    except Exception as e:
+        gc.collect()
+        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
+
+@app.get("/preview-image/")
+async def preview_image():
+    file_path = "preview_pod.png"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Preview image not found.")
+
+@app.get("/download/")
+async def download_image():
+    file_path = "ready_for_pod.png"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/png", filename="pod_ready_image_300dpi.png")
+    raise HTTPException(status_code=404, detail="Processed image not found.")
